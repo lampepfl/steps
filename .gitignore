@@ -1,0 +1,5 @@
+.bsp
+.scala-build
+.metals
+target
+**/project/metals.sbt
