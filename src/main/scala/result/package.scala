@@ -293,16 +293,22 @@ object Result:
     *   - [[raise]] can be used to quickly short-circuit with an error.
     * @group eval
     */
-  def apply[T, E](body: boundary.Label[Err[E]] ?=> T): Result[T, E] =
+  inline def apply[T, E](
+      inline body: boundary.Label[Err[E]] ?=> T
+  ): Result[T, E] =
     boundary:
       Ok(body)
+
+  type From[T] = [U] =>> Conversion[T, U]
 
   /** Short-circuits the current `body` under [[Result$.apply Result.apply]]
     * with the given error.
     * @group eval
     */
-  def raise[E](err: E)(using boundary.Label[Err[E]]): Nothing =
-    boundary.break(new Err(err))
+  inline def raise[E, E1: From[E]](err: E)(using
+      boundary.Label[Err[E1]]
+  ): Nothing =
+    boundary.break(new Err(err.convert))
 
   extension [T, E](r: Result[T, E])
     /** Unwraps the result, returning the value under [[Ok]]. Short-circuits the
@@ -312,10 +318,8 @@ object Result:
       * @see
       *   [[apply]] and [[raise]].
       */
-    transparent inline def ?[E1](using
-        boundary.Label[Err[E1]],
-        Conversion[E, E1]
-    ): T = r match
-      case Ok(value)  => value
-      case Err(error) => raise(error.convert)
+    transparent inline def ?[E1: From[E]](using boundary.Label[Err[E1]]): T =
+      r match
+        case Ok(value)  => value
+        case Err(error) => raise(error)
 end Result
