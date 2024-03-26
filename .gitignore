@@ -3,3 +3,4 @@
 .metals
 target
 **/project/metals.sbt
+.bloop
