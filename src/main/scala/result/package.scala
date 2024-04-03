@@ -6,6 +6,8 @@ import java.{util => ju}
 import scala.util.control.NonFatal
 import scala.util.boundary
 
+export Result.*
+
 /** Represents either a success value of type `T` or an error of type `E`.
   * @groupname construct Constructing [[Result Results]] through other means
   * @groupprio construct 1
@@ -294,10 +296,9 @@ object Result:
     * @group eval
     */
   inline def apply[T, E](
-      inline body: boundary.Label[Err[E]] ?=> T
+      inline body: boundary.Label[Result[T, E]] ?=> T
   ): Result[T, E] =
-    boundary:
-      Ok(body)
+    boundary(Ok(body))
 
   type From[T] = [U] =>> Conversion[T, U]
 
@@ -309,6 +310,13 @@ object Result:
       boundary.Label[Err[E1]]
   ): Nothing =
     boundary.break(new Err(err.convert))
+
+  /** A shorthand to call [[scala.util.boundary.break boundary.break]] with a
+    * [[Result]] label.
+    */
+  inline def break[T, E](inline r: Result[T, E])(using
+      boundary.Label[Result[T, E]]
+  ) = boundary.break(r)
 
   extension [T, E](r: Result[T, E])
     /** Unwraps the result, returning the value under [[Ok]]. Short-circuits the

@@ -139,4 +139,20 @@ class ResultTest extends munit.FunSuite {
     assertEquals(log2(4), Ok(2))
     assertEquals(log2(-1), Err(LogErr.NL(NoLog)))
   }
+
+  test("tailrec") {
+    given [T]: Conversion[T, T] with
+      def apply(u: T) = u
+
+    @scala.annotation.tailrec
+    def tryFoldLeft[T, U, E](init: U, f: (U, T) => Result[U, E])(
+        s: Seq[T]
+    ): Result[U, E] =
+      Result:
+        s match
+          case Seq() => init
+          case Seq(h, t*) =>
+            val next = f(init, h).?
+            Result.break(tryFoldLeft(next, f)(t))
+  }
 }
