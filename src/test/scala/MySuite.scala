@@ -1,11 +1,11 @@
 import result.Result
 import result.Result.*
+import result.Result.eval.*
 import scala.util.Try
 
 class ResultTest extends munit.FunSuite {
-  type Rs = Result[Int, String]
-  val ok: Rs = Ok(1)
-  val err: Rs = Err("bad")
+  val ok: Result[Int, String] = Ok(1)
+  val err: Result[Int, String] = Err("bad")
 
   test("disambiguators") {
     assert(ok.isOk)
@@ -130,11 +130,17 @@ class ResultTest extends munit.FunSuite {
 
     given Conversion[NoLog.type, LogErr] = LogErr.NL(_)
 
+    given Conversion[LogErr, Exception] =
+      case LogErr.NL(inner) => inner
+
     def log2(input: Int): Result[Int, LogErr] =
       Result:
-        if input < 1 then Result.raise(NoLog)
+        if input < 1 then eval.raise(NoLog)
         else if input == 1 then 0
         else log2(input / 2).? + 1
+
+    Result[Int, Exception]: label ?=>
+      log2(5).?
 
     assertEquals(log2(4), Ok(2))
     assertEquals(log2(-1), Err(LogErr.NL(NoLog)))
@@ -153,6 +159,28 @@ class ResultTest extends munit.FunSuite {
           case Seq() => init
           case Seq(h, t*) =>
             val next = f(init, h).?
-            Result.break(tryFoldLeft(next, f)(t))
+            eval.break(tryFoldLeft(next, f)(t))
   }
+
+  // Error message tests, uncomment to see.
+
+  // test("outside of scope") {
+  // val x = ok.?
+  // }
+
+  // test("wrong error type") {
+  // Result[Int, Int]:
+  //   val x = ok.?
+  //   val y = eval.raise("a")
+  //   1
+
+  // Result[String, String]:
+  //   Result.break(ok)
+  // }
+
+  // test("break error") {
+  //   Result[Int, Int]:
+  //     val z = eval.break(err)
+  //     1
+  // }
 }

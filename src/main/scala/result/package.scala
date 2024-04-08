@@ -5,8 +5,7 @@ package result
 import java.{util => ju}
 import scala.util.control.NonFatal
 import scala.util.boundary
-
-export Result.*
+import scala.annotation.implicitNotFound
 
 /** Represents either a success value of type `T` or an error of type `E`.
   * @groupname construct Constructing [[Result Results]] through other means
@@ -52,12 +51,12 @@ object Result:
     /** Returns whether the result is [[Result.Ok Ok]].
       * @group access
       */
-    def isOk: Boolean = r.isInstanceOf[Ok[_]]
+    def isOk: Boolean = r.isInstanceOf[Ok[?]]
 
     /** Returns whether the result is [[Result.Err Err]].
       * @group access
       */
-    def isErr: Boolean = r.isInstanceOf[Err[_]]
+    def isErr: Boolean = r.isInstanceOf[Err[?]]
 
     /** Returns `true` if result contains an [[Ok]] value that satisfies `pred`.
       * @group access
@@ -73,8 +72,8 @@ object Result:
 
     // Conversion to Option and other Seqs
 
-    /** Converts the result into an [[Option]], with [[Some]] case if the value
-      * is [[Ok]].
+    /** Conversionerts the result into an [[Option]], with [[Some]] case if the
+      * value is [[Ok]].
       * @group convert
       */
     def toOption: Option[T] = r match
@@ -103,7 +102,7 @@ object Result:
 
     // Conversion to Either
 
-    /** Converts the result into an [[Either]].
+    /** Conversionerts the result into an [[Either]].
       * @group convert
       */
     def toEither = r match
@@ -261,8 +260,8 @@ object Result:
 
   // Conversion to `Try`
 
-  extension [T, E <: Throwable](r: Result[T, E])
-    /** Converts the result to [[scala.util.Try]].
+  extension [T](r: Result[T, Throwable])
+    /** Conversionerts the result to [[scala.util.Try]].
       * @group convert
       */
     def toTry: scala.util.Try[T] = r match
@@ -286,7 +285,6 @@ object Result:
   val empty: Result[EmptyTuple, Nothing] = Ok(EmptyTuple)
 
   // Boundary and break
-
   /** Evaluates `body`, returning the output as an [[Ok]] value.
     *
     * Within `body`:
@@ -297,37 +295,98 @@ object Result:
     */
   inline def apply[T, E](
       inline body: boundary.Label[Result[T, E]] ?=> T
-  ): Result[T, E] =
-    boundary(Ok(body))
+  ): Result[T, E] = eval(body)
 
-  type From[T] = [U] =>> Conversion[T, U]
+  object eval:
+    inline def apply[T, E](
+        inline body: boundary.Label[Result[T, E]] ?=> T
+    ): Result[T, E] =
+      boundary(Ok(body))
 
-  /** Short-circuits the current `body` under [[Result$.apply Result.apply]]
-    * with the given error.
-    * @group eval
-    */
-  inline def raise[E, E1: From[E]](err: E)(using
-      boundary.Label[Err[E1]]
-  ): Nothing =
-    boundary.break(new Err(err.convert))
-
-  /** A shorthand to call [[scala.util.boundary.break boundary.break]] with a
-    * [[Result]] label.
-    */
-  inline def break[T, E](inline r: Result[T, E])(using
-      boundary.Label[Result[T, E]]
-  ) = boundary.break(r)
-
-  extension [T, E](r: Result[T, E])
-    /** Unwraps the result, returning the value under [[Ok]]. Short-circuits the
-      * current `body` under [[Result$.apply Result.apply]] with the given error
-      * if the result is an [[Err]].
+    // type From[T] = [U] =>> Conversion[T, U]
+    /** Short-circuits the current `body` under [[Result$.apply Result.apply]]
+      * with the given error.
       * @group eval
-      * @see
-      *   [[apply]] and [[raise]].
       */
-    transparent inline def ?[E1: From[E]](using boundary.Label[Err[E1]]): T =
-      r match
-        case Ok(value)  => value
-        case Err(error) => raise(error)
+    inline def raise[E, E1](err: E)(using
+        @implicitNotFound(
+          "`raise` cannot be used outside of the `Result.apply` scope."
+        )
+        label: boundary.Label[Err[E1]]
+    )(using
+        @implicitNotFound(
+          """`raise` cannot be used here, as the error types of this Result (${E}) and `Result.apply` (${E1}) are incompatible. Consider changing the error type of `Result.apply`, or provide a conversion between the error types through an instance of the `Conversion` trait:
+
+    given Conversion[${E}, ${E1}] = ???
+
+"""
+        )
+        conversion: Conversion[E, E1]
+    ): Nothing =
+      boundary.break(new Err(err.convert))
+
+    /** A shorthand to call [[scala.util.boundary.break boundary.break]] with a
+      * [[Result]] label.
+      */
+    inline def break[T, E](inline r: Result[T, E]): Nothing = ${ breakImpl('r) }
+
+    private object breakImpl:
+      import scala.quoted.*
+      def apply[T, E](r: Expr[Result[T, E]])(using Quotes, Type[T], Type[E]) =
+        Expr.summon[boundary.Label[Result[T, E]]] match
+          case Some(l) => '{ boundary.break(${ r })(using ${ l }) }
+          case None =>
+            Expr.summon[boundary.Label[Result[Nothing, Nothing]]] match
+              case Some(label) =>
+                label match
+                  case '{ $label: boundary.Label[Result[lt, le]] } =>
+                    type gotLabel = Result[lt, le]
+                    quotes.reflect.report.errorAndAbort(
+                      s"""`break` cannot be used here with a value of type `${Type
+                          .show[Result[T, E]]}`,
+as the return type of the current `Result.apply` scope is different: `${Type
+                          .show[gotLabel]}`.
+Perhaps you want to:
+- Unwrap the `Result`, returning `${Type.show[T]}`:
+
+    ${r.show}.?
+
+- Map the resulting value to another type with `.map` or `.mapError`
+
+    ${r.show}.map(value => ???)
+    ${r.show}.mapError(error => ???)
+
+"""
+                    )
+              case None =>
+                quotes.reflect.report.errorAndAbort(
+                  "`break` cannot be used outside of a `Result.apply` scope."
+                )
+
+    extension [T, E, E1](r: Result[T, E])(using
+        @implicitNotFound(
+          "`.?` cannot be used outside of the `Result.apply` scope."
+        )
+        label: boundary.Label[Err[E1]]
+    )(using
+        @implicitNotFound(
+          """`.?` cannot be used here, as the error types of this Result (${E}) and `Result.apply` (${E1}) are incompatible. Consider changing the error type of `Result.apply`, or provide a conversion between the error types through an instance of the `Conversion` trait:
+
+    given Conversion[${E}, ${E1}] = ???
+
+"""
+        )
+        conversion: Conversion[E, E1]
+    )
+      /** Unwraps the result, returning the value under [[Ok]]. Short-circuits
+        * the current `body` under [[Result$.apply Result.apply]] with the given
+        * error if the result is an [[Err]].
+        * @group eval
+        * @see
+        *   [[apply]] and [[raise]].
+        */
+      inline def `?` : T =
+        r match
+          case Ok(value)  => value
+          case Err(error) => raise(error)
 end Result
