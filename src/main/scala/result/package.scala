@@ -285,6 +285,9 @@ object Result:
   val empty: Result[EmptyTuple, Nothing] = Ok(EmptyTuple)
 
   // Boundary and break
+
+  // Currently under its own object `eval` due to https://github.com/scala/scala3/issues/20126
+
   /** Evaluates `body`, returning the output as an [[Ok]] value.
     *
     * Within `body`:
