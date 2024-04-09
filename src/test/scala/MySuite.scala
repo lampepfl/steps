@@ -48,6 +48,19 @@ class ResultTest extends munit.FunSuite {
     assertEquals(ok.flatMap(v => Err("pew")), Err("pew"))
     assertEquals(err.flatMap(v => Ok(v + 1)), err)
 
+    val sum = for
+      a <- ok
+      b <- ok
+    yield a + b
+    assertEquals(sum, Ok(2))
+
+    val sumNone = for
+      a <- ok
+      b <- err
+      c <- ok
+    yield a + b + c
+    assertEquals(sumNone, err)
+
     assertEquals(Ok(Ok(3)).flatten, Ok(3))
     assertEquals(Ok(Err("bad")).flatten, Err("bad"))
     assertEquals(Err("bad").flatten, Err("bad"))
@@ -165,18 +178,15 @@ class ResultTest extends munit.FunSuite {
   // Error message tests, uncomment to see.
 
   // test("outside of scope") {
-  // val x = ok.?
-  // }
-
-  // test("wrong error type") {
-  // Result[Int, Int]:
   //   val x = ok.?
-  //   val y = eval.raise("a")
-  //   1
-
-  // Result[String, String]:
-  //   Result.break(ok)
   // }
+
+  test("wrong error type") {
+    Result[Int, Int]:
+      val x = ok.?
+      val y = eval.raise("a")
+      1
+  }
 
   // test("break error") {
   //   Result[Int, Int]:

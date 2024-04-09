@@ -344,20 +344,34 @@ object Result:
                 label match
                   case '{ $label: boundary.Label[Result[lt, le]] } =>
                     type gotLabel = Result[lt, le]
+                    val resultsIncompatible =
+                      if Expr.summon[T <:< lt].isEmpty then
+                        Seq(s"  - The result types are not compatible: `${Type
+                            .show[T]}` is not a sub-type of `${Type.show[lt]}`")
+                      else Seq()
+                    val errorsIncompatible =
+                      if Expr.summon[E <:< le].isEmpty then
+                        Seq(s"  - The error types are not compatible: `${Type
+                            .show[E]}` is not a sub-type of `${Type.show[le]}`")
+                      else Seq()
                     quotes.reflect.report.errorAndAbort(
                       s"""`break` cannot be used here with a value of type `${Type
                           .show[Result[T, E]]}`,
 as the return type of the current `Result.apply` scope is different: `${Type
-                          .show[gotLabel]}`.
+                          .show[gotLabel]}`:
+${(resultsIncompatible ++ errorsIncompatible).mkString("\n")}
+
 Perhaps you want to:
-- Unwrap the `Result`, returning `${Type.show[T]}`:
+  - Unwrap the `Result`, returning `${Type.show[T]}`:
 
     ${r.show}.?
 
-- Map the resulting value to another type with `.map` or `.mapError`
+  - Map the resulting value to another type with `.map` or `.mapError`
 
-    ${r.show}.map(value => ???)
-    ${r.show}.mapError(error => ???)
+    ${r.show}
+      .map(value => ???)
+    ${r.show}
+      .mapError(error => ???)
 
 """
                     )
