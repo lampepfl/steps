@@ -8,6 +8,54 @@ import scala.util.boundary
 import scala.annotation.implicitNotFound
 
 /** Represents either a success value of type `T` or an error of type `E`.
+  *
+  * To create one, directly use one of the variant constructors [[Result.Ok Ok]]
+  * or [[Result.Err Err]], or start a computation scope with [[Result.apply]]:
+  * {{{
+  * extension[T] (seq: Seq[T])
+  *   def tryMap[U, E](f: T => Result[U, E]): Result[Seq[U], E] =
+  *     Result:
+  *       seq.map(f(_).?)
+  * }}}
+  *
+  * Conversions from [[Option]] and [[Either]] are available in
+  * [[ScalaConverters]] (or implicitly through importing [[Conversions]]).
+  *
+  * Casual usage in a library where precise error reporting is preferred would
+  * consist of creating the Error type as an `enum` or an union type, aliasing
+  * the `Result` type with the correct error type, and using it as part of the
+  * function signature.
+  *
+  * {{{
+  * enum LibError:
+  *   case A
+  *   case B(inner: SomeError)
+  * // or ...
+  * type LibError = ErrorA.type | SomeError
+  *
+  * type LibResult[+T] = Result[T, LibError]
+  *
+  * object LibResult:
+  *   import scala.util.boundary
+  *   export Result.{apply as _, *}
+  *
+  *   // override `apply` manually, to have it fix the Error type parameter.
+  *   inline def apply[T](inline body: boundary.Label[LibResult[T]] => T) = Result.apply(body)
+  *
+  * // in the library:
+  * def ApiEndpoint(p: Int): LibResult[String] =
+  *   LibResult:
+  *     // ...
+  * }}}
+  *
+  * In end applications, prefer either:
+  *   - directly `match`ing over the [[Result]], where precise errors need to be
+  *     inspected.
+  *   - in other cases, where tracing is wanted and error details are less
+  *     important, prefer unwrapping the [[Result]] directly and catch the
+  *     [[Result.ResultIsErrException]] at the top level to inspect the error
+  *     details.
+  *
   * @groupname construct Constructing [[Result Results]] through other means
   * @groupprio construct 1
   * @groupname eval Constructing [[Result Results]] through evaluating
@@ -43,6 +91,15 @@ end Result
   * @groupprio access 2
   */
 object Result:
+  /** An exception obtained by calling [[Result.get get]] on a [[Result.Err]].
+    * @param error
+    *   the error value that was enclosed in the variant.
+    */
+  case class ResultIsErrException(error: Any)
+      extends java.util.NoSuchElementException(
+        s"Attempting to call `.get` on a Result.Err value of: $error"
+      )
+
   /** Method implementations on [[Result]]. */
   extension [T, E](r: Result[T, E])
 
@@ -72,8 +129,8 @@ object Result:
 
     // Conversion to Option and other Seqs
 
-    /** Conversionerts the result into an [[Option]], with [[Some]] case if the
-      * value is [[Ok]].
+    /** Converts the result into an [[Option]], with [[Some]] case if the value
+      * is [[Ok]].
       * @group convert
       */
     def toOption: Option[T] = r match
@@ -113,14 +170,14 @@ object Result:
 
     /** Returns the [[Ok]] value from the result, and throws an exception if it
       * is an error.
-      * @throws java.util.NoSuchElementException
+      * @throws ResultIsErrException
       *   if the result is an [[Err]].
       * @group access
       */
     def get: T = r match
       case Ok(value) => value
-      case Err(_) =>
-        throw ju.NoSuchElementException(s"Expected Result.Ok, got $r")
+      case Err(error) =>
+        throw ResultIsErrException(error)
 
     /** Returns the error from the result, and throws an exception if it is an
       * [[Ok]] value.
@@ -130,8 +187,10 @@ object Result:
       */
     def getErr: E = r match
       case Err(error) => error
-      case Ok(_) =>
-        throw ju.NoSuchElementException(s"Expected Result.Err, got $r")
+      case Ok(value) =>
+        throw ju.NoSuchElementException(
+          s"Expected Result.Err, got value: $value"
+        )
 
     // Extracting with defaults
 
@@ -258,6 +317,14 @@ object Result:
       case Ok(value)        => value
       case err @ Err(error) => err
 
+  extension [T <: AnyRef, E](r: Result[T, E])
+    /** Unwraps the inner value, returing `null` if there is an error.
+      * @group access
+      */
+    def getNullable: T | Null = r match
+      case Ok(value)  => value
+      case Err(error) => null
+
   // Conversion to `Try`
 
   extension [T](r: Result[T, Throwable])
@@ -291,9 +358,9 @@ object Result:
   /** Evaluates `body`, returning the output as an [[Ok]] value.
     *
     * Within `body`:
-    *   - [[?]] can be used to unwrap [[Result]] values, with the body
+    *   - [[eval.`?`]] can be used to unwrap [[Result]] values, with the body
     *     short-circuiting back with the error.
-    *   - [[raise]] can be used to quickly short-circuit with an error.
+    *   - [[eval.raise]] can be used to quickly short-circuit with an error.
     * @group eval
     */
   inline def apply[T, E](
@@ -332,6 +399,7 @@ object Result:
       * [[Result]] label.
       */
     inline def break[T, E](inline r: Result[T, E]): Nothing = ${ breakImpl('r) }
+    // inline def break[T, E](inline r: Result[T, E]): Nothing = ???
 
     private object breakImpl:
       import scala.quoted.*
@@ -407,3 +475,14 @@ Perhaps you want to:
           case Ok(value)  => value
           case Err(error) => raise(error)
 end Result
+
+object Inline:
+  import scala.quoted.*
+  trait X[-T]
+
+  inline def inlineDef[T](v: => T): X[T] = ${ inlineDefImpl('v) }
+  def inlineDefImpl[T](ev: Expr[T])(using Quotes, Type[T]) =
+    Expr.summon[X[T]] match
+      case Some(value) => value
+      case None =>
+        quotes.reflect.report.errorAndAbort("no such X")

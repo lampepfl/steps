@@ -175,18 +175,26 @@ class ResultTest extends munit.FunSuite {
             eval.break(tryFoldLeft(next, f)(t))
   }
 
+  test("implicit upcasting") {
+    import result.Conversions.Lift.given
+    import result.Conversions.Compat.given
+
+    Result[Int, Nothing]:
+      1.?
+  }
+
   // Error message tests, uncomment to see.
 
   // test("outside of scope") {
   //   val x = ok.?
   // }
 
-  test("wrong error type") {
-    Result[Int, Int]:
-      val x = ok.?
-      val y = eval.raise("a")
-      1
-  }
+  // test("wrong error type") {
+  //   Result[Int, Int]:
+  //     val x = ok.?
+  //     val y = eval.raise("a")
+  //     1
+  // }
 
   // test("break error") {
   //   Result[Int, Int]:
