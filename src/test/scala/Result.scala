@@ -4,6 +4,7 @@ import result.Result.eval.*
 import scala.util.Try
 
 class ResultTest extends munit.FunSuite {
+  import result.Conversions.Compat.given
   val ok: Result[Int, String] = Ok(1)
   val err: Result[Int, String] = Err("bad")
 
@@ -129,9 +130,6 @@ class ResultTest extends munit.FunSuite {
   }
 
   test("constructors") {
-    given [T]: Conversion[T, T] with
-      def apply(u: T) = u
-
     assertEquals(Result.catchException(1), Ok(1))
     val exc = new Exception("bleh")
     assertEquals(Result.catchException(throw exc), Err(exc))
@@ -177,10 +175,10 @@ class ResultTest extends munit.FunSuite {
 
   test("implicit upcasting") {
     import result.Conversions.Lift.given
-    import result.Conversions.Compat.given
 
     Result[Int, Nothing]:
-      1.?
+      val t: Result[Int, String] = 1
+      eval.break(1)
   }
 
   // Error message tests, uncomment to see.
