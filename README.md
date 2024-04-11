@@ -1,3 +1,7 @@
-# scala-result
+# dotty-library
 
-A `Result` type for error handling.
+A collection of libraries maintained by LAMP.
+
+# License
+
+[Apache 2.0](./LICENSE.md)
