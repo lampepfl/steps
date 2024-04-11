@@ -475,14 +475,3 @@ Perhaps you want to:
           case Ok(value)  => value
           case Err(error) => raise(error)
 end Result
-
-object Inline:
-  import scala.quoted.*
-  trait X[-T]
-
-  inline def inlineDef[T](v: => T): X[T] = ${ inlineDefImpl('v) }
-  def inlineDefImpl[T](ev: Expr[T])(using Quotes, Type[T]) =
-    Expr.summon[X[T]] match
-      case Some(value) => value
-      case None =>
-        quotes.reflect.report.errorAndAbort("no such X")
