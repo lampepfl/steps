@@ -7,7 +7,9 @@ import scala.util.control.NonFatal
 import scala.util.boundary
 import scala.annotation.implicitNotFound
 
-/** Represents either a success value of type `T` or an error of type `E`.
+/** Represents either a success value of type `T` or an error of type `E`. It
+  * can be used when expecting results that have errors that should be inspected
+  * by the caller. For this, [[Result]] have a precise error type parameter.
   *
   * To create one, directly use one of the variant constructors [[Result.Ok Ok]]
   * or [[Result.Err Err]], or start a computation scope with [[Result.apply]]:
@@ -15,11 +17,52 @@ import scala.annotation.implicitNotFound
   * extension[T] (seq: Seq[T])
   *   def tryMap[U, E](f: T => Result[U, E]): Result[Seq[U], E] =
   *     Result:
-  *       seq.map(f(_).?)
+  *       seq.map(f(_).?) // shorts-circuit on the first Err and returns
+  * }}}
+  *
+  * Tail-recursive functions can be implemented by using
+  * [[Result.eval.break eval.break]]:
+  *
+  * {{{
+  * extension[T] (seq: Seq[T])
+  *   @scala.annotation.tailrec
+  *   def tryFoldLeft[U, E](init: U)(f: (U, T) => Result[U, E]) =
+  *     Result:
+  *       seq match
+  *         case Seq() => init
+  *         case Seq(h, t*) => eval.break(t.tryFoldLeft(f(init, h)))
+  *
+  * // however, a much simpler implementation is
+  * extension[T] (seq: Seq[T])
+  *   def tryFoldLeft[U, E](init: U)(f: (U, T) => Result[U, E]) =
+  *     Result:
+  *       seq.foldLeft(init)(f(_, _).?)
   * }}}
   *
   * Conversions from [[Option]] and [[Either]] are available in
   * [[ScalaConverters]] (or implicitly through importing [[Conversions]]).
+  *
+  * {{{
+  * // from Option
+  * val opt: Option[Int] = f()
+  * val res1 = opt.okOr(Error.NotFound) // with explicit error
+  * val res2 = opt.asResult // Result[Int, NoSuchElementException]
+  * // to Option
+  * val opt2 = res1.ok // returns Option[Int]
+  *
+  * // from Either
+  * val either: Either[E, T] = f()
+  * val res = either.asResult // Result[T, E]
+  * // to Either
+  * val either2 = res.toEither
+  *
+  * // from Try
+  * val t: Try[T] = Try { /* ... */ }
+  * val res = t.asResult // Result[T, Throwable]
+  * // to Try
+  * val t2 = res.toTry // Try[T], if error type is throwable
+  * val t2 = Try { res.get } // Try[T], throws ResultIsErrException
+  * }}}
   *
   * Casual usage in a library where precise error reporting is preferred would
   * consist of creating the Error type as an `enum` or an union type, aliasing
@@ -367,7 +410,13 @@ object Result:
       inline body: boundary.Label[Result[T, E]] ?=> T
   ): Result[T, E] = eval(body)
 
+  /** Operations that are valid under a [[Result.apply]] scope.
+    * @group eval
+    * @see
+    *   [[eval.?]], [[eval.raise]] and [[eval.break]]
+    */
   object eval:
+    /** Similar to [[Result.apply]]. */
     inline def apply[T, E](
         inline body: boundary.Label[Result[T, E]] ?=> T
     ): Result[T, E] =
@@ -396,9 +445,52 @@ object Result:
       boundary.break(new Err(err.convert))
 
     /** A shorthand to call [[scala.util.boundary.break boundary.break]] with a
-      * [[Result]] label.
+      * [[Result]] label. This is useful in case an early return is needed, or a
+      * tail recursion call (returning a [[Result]]) is called.
+      *
+      * For example, `tryFoldLeft` on [[Seq]] can be implemented like below:
+      * {{{
+      * extension[T] (seq: Seq[T])
+      *   @scala.annotation.tailrec
+      *   def tryFoldLeft[U, E](init: U)(f: (U, T) => Result[U, E]): Result[U, E] =
+      *     Result:
+      *       seq match
+      *         case Seq() => init
+      *         case Seq(h, t*) =>
+      *           // t.tryFoldLeft(f(init, h).?)(f).?        // error: not a tail call (.? applied at the end)
+      *           eval.break(t.tryFoldLeft(f(init, h).?)(f)) // ok
+      * }}}
+      *
+      * Note that however, in most cases, it is simpler to capture the
+      * [[Result.apply]] from outside of the
+      * [[scala.annotation.tailrec tailrec]] loop, as this minimizes the amount
+      * of boxing/unboxing [[Result]] needed on every step:
+      * {{{
+      * extension[T] (seq: Seq[T])
+      *   def tryFoldLeft[U, E](init: U)(f: (U, T) => Result[U, E]): Result[U, E] =
+      *     Result:
+      *       @scala.annotation.tailrec
+      *       def loop(current: U, seq: Seq[T]): U = // note the return type
+      *         seq match
+      *           case Seq() => current
+      *           case Seq(h, t*) => loop(f(current, h).?, t)
+      *       loop(init, seq)
+      * }}}
+      *
+      * Of course, one could also simply rewrite it in terms of `.foldLeft`:
+      * {{{
+      * extension[T] (seq: Seq[T])
+      *   def tryFoldLeft[U, E](init: U)(f: (U, T) => Result[U, E]): Result[U, E] =
+      *     Result:
+      *       seq.foldLeft(init)(f(_, _).?)
+      * }}}
+      *
+      * @return
+      *   Always returns [[Nothing]], but the return type is set so that Scala
+      *   does not infer `T` and `E` contravariantly.
       */
-    inline def break[T, E](inline r: Result[T, E]): Nothing = ${ breakImpl('r) }
+    transparent inline def break[T, E](inline r: Result[T, E]): Result[T, E] =
+      ${ breakImpl('r) }
     // inline def break[T, E](inline r: Result[T, E]): Nothing = ???
 
     private object breakImpl:
@@ -466,6 +558,15 @@ Perhaps you want to:
       /** Unwraps the result, returning the value under [[Ok]]. Short-circuits
         * the current `body` under [[Result$.apply Result.apply]] with the given
         * error if the result is an [[Err]].
+        * {{{
+        * val ok = Ok(1)
+        * val err = Err("fail!")
+        *
+        * val compute = Result:
+        *   ok.?      // ok, unwraps and gives 1
+        *     + err.? // error, immediately sets compute to Err("fail")
+        *     + f()   // not evaluated
+        * }}}
         * @group eval
         * @see
         *   [[apply]] and [[raise]].
@@ -474,4 +575,5 @@ Perhaps you want to:
         r match
           case Ok(value)  => value
           case Err(error) => raise(error)
+
 end Result
