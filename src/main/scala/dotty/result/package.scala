@@ -1,6 +1,6 @@
 /** Defines [[Result]], an enum representing either a success value or an error.
   */
-package result
+package dotty.result
 
 import java.{util => ju}
 import scala.util.control.NonFatal

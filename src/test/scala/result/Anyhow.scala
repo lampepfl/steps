@@ -1,6 +1,6 @@
-import result.Result
-import result.Result.*
-import result.Result.eval.*
+import dotty.result.Result
+import dotty.result.Result.*
+import dotty.result.Result.eval.*
 import scala.util.Try
 import scala.util.boundary
 

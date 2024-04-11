@@ -1,10 +1,10 @@
-import result.Result
-import result.Result.*
-import result.Result.eval.*
+import dotty.result.Result
+import dotty.result.Result.*
+import dotty.result.Result.eval.*
 import scala.util.Try
 
 class ResultTest extends munit.FunSuite {
-  import result.Conversions.Compat.given
+  import dotty.result.Conversions.Compat.given
   val ok: Result[Int, String] = Ok(1)
   val err: Result[Int, String] = Err("bad")
 
@@ -174,7 +174,7 @@ class ResultTest extends munit.FunSuite {
   }
 
   test("implicit upcasting") {
-    import result.Conversions.Lift.given
+    import dotty.result.Conversions.Lift.given
 
     Result[Int, Nothing]:
       val t: Result[Int, String] = 1

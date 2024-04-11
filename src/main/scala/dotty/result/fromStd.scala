@@ -1,4 +1,4 @@
-package result
+package dotty.result
 import scala.util.{Try, Success, Failure}
 
 /** Provides extension methods convert Scala API optional value containers into
