@@ -361,6 +361,16 @@ object Result:
     def flatMap[U](f: T => Result[U, E]) = r match
       case Ok(value)    => f(value)
       case err @ Err(_) => err
+
+    /** Returns the output of `f` from applying it to the [[Err]] case error,
+      * otherwise keeping the [[Ok]] case. Similar to [[flatMap]], but on the
+      * [[Err]] case.
+      * @group transform
+      */
+    def handleErr[E1](f: E => Result[T, E1]) = r match
+      case ok: Ok[T]  => ok
+      case Err(error) => f(error)
+
   end extension
 
   extension [T, E](r: Result[Result[T, E], E])

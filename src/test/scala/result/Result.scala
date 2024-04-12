@@ -49,6 +49,9 @@ class ResultTest extends munit.FunSuite {
     assertEquals(ok.flatMap(v => Err("pew")), Err("pew"))
     assertEquals(err.flatMap(v => Ok(v + 1)), err)
 
+    assertEquals(ok.handleErr(_ => err), ok)
+    assertEquals(err.handleErr(_ => ok), ok)
+
     val sum = for
       a <- ok
       b <- ok
