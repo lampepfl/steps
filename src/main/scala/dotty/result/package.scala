@@ -389,16 +389,17 @@ object Result:
       case Ok(value)  => scala.util.Success(value)
       case Err(error) => scala.util.Failure(error)
 
-  /** Evaluates `body`, catching [[scala.util.control.NonFatal NonFatal]]
-    * exceptions as errors.
+  /** Evaluates `body`, catching exceptions accepted by `catcher` as errors.
     * @see
     *   [[scala.util.Try Try.apply]] for a similar method returning
-    *   [[scala.util.Try]].
+    *   [[scala.util.Try]], but works on all [[NonFatal]] exceptions.
     * @group construct
     */
-  def catchException[T](body: => T): Result[T, Throwable] =
+  def catchException[T, E](catcher: PartialFunction[Throwable, E])(
+      body: => T
+  ): Result[T, E] =
     try Ok(body)
-    catch case NonFatal(ex) => Err(ex)
+    catch case ex => Err(catcher.applyOrElse(ex, _ => throw ex))
 
   /** Right unit for chains of [[cons]]. An [[Ok]] with an [[EmptyTuple]] value.
     * @group construct

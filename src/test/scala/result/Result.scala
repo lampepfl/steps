@@ -130,11 +130,18 @@ class ResultTest extends munit.FunSuite {
   }
 
   test("constructors") {
-    assertEquals(Result.catchException(1), Ok(1))
+    assertEquals(Result.catchException({ case ex => ex })(1), Ok(1))
     val exc = new Exception("bleh")
-    assertEquals(Result.catchException(throw exc), Err(exc))
+    assertEquals(
+      Result.catchException({ case ex: Exception => ex })(throw exc),
+      Err(exc)
+    )
 
     case object NoLog extends Exception("no log")
+
+    assert(
+      Try { Result.catchException({ case NoLog => 1 })(throw exc) }.isFailure
+    )
 
     enum LogErr:
       case NL(inner: NoLog.type)
