@@ -14,10 +14,10 @@ import scala.annotation.implicitNotFound
   * To create one, directly use one of the variant constructors [[Result.Ok Ok]]
   * or [[Result.Err Err]], or start a computation scope with [[Result.apply]]:
   * {{{
-  * extension[T] (seq: Seq[T])
+  * extension[T] (it: IterableOnce[T])
   *   def tryMap[U, E](f: T => Result[U, E]): Result[Seq[U], E] =
   *     Result:
-  *       seq.map(f(_).?) // shorts-circuit on the first Err and returns
+  *       it.iterator.map(f(_).?) // shorts-circuit on the first Err and returns
   * }}}
   *
   * Tail-recursive functions can be implemented by using
@@ -33,10 +33,10 @@ import scala.annotation.implicitNotFound
   *         case Seq(h, t*) => eval.break(t.tryFoldLeft(f(init, h)))
   *
   * // however, a much simpler implementation is
-  * extension[T] (seq: Seq[T])
+  * extension[T] (it: IterableOnce[T])
   *   def tryFoldLeft[U, E](init: U)(f: (U, T) => Result[U, E]) =
   *     Result:
-  *       seq.foldLeft(init)(f(_, _).?)
+  *       it.iterator.foldLeft(init)(f(_, _).?)
   * }}}
   *
   * Conversions from [[Option]] and [[Either]] are available in
@@ -112,12 +112,23 @@ import scala.annotation.implicitNotFound
   * @groupname access Value accessors and disambiguators
   * @groupprio access 2
   */
-enum Result[+T, +E]:
+enum Result[+T, +E] extends IterableOnce[T]:
   /** Contains the success value */
   case Ok[+T](value: T) extends Result[T, Nothing]
 
   /** Contains the error value */
   case Err[+E](error: E) extends Result[Nothing, E]
+
+  // IterableOnce implementation
+
+  def iterator: Iterator[T] = this match
+    case Ok(value) => Iterator(value)
+    case Err(_)    => Iterator.empty
+
+  override def knownSize: Int = this match
+    case Ok(_)  => 1
+    case Err(_) => 0
+
 end Result
 
 /** @groupname construct Constructing [[Result Results]] through other means
@@ -479,10 +490,10 @@ object Result:
       *
       * Of course, one could also simply rewrite it in terms of `.foldLeft`:
       * {{{
-      * extension[T] (seq: Seq[T])
+      * extension[T] (it: IterableOnce[T])
       *   def tryFoldLeft[U, E](init: U)(f: (U, T) => Result[U, E]): Result[U, E] =
       *     Result:
-      *       seq.foldLeft(init)(f(_, _).?)
+      *       it.iterator.foldLeft(init)(f(_, _).?)
       * }}}
       *
       * @return

@@ -181,6 +181,14 @@ class ResultTest extends munit.FunSuite {
       eval.break(1)
   }
 
+  test("iterable") {
+    assertEquals(ok.iterator.toSeq, ok.toSeq)
+    assertEquals(err.iterator.toSeq, err.toSeq)
+
+    assertEquals(ok.knownSize, 1)
+    assertEquals(err.knownSize, 0)
+  }
+
   // Error message tests, uncomment to see.
 
   // test("outside of scope") {
