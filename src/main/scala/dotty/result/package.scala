@@ -17,7 +17,7 @@ import scala.annotation.implicitNotFound
   * extension[T] (it: IterableOnce[T])
   *   def tryMap[U, E](f: T => Result[U, E]): Result[Seq[U], E] =
   *     Result:
-  *       it.iterator.map(f(_).?) // shorts-circuit on the first Err and returns
+  *       it.iterator.map(f(_).ok) // shorts-circuit on the first Err and returns
   * }}}
   *
   * Tail-recursive functions can be implemented by using
@@ -36,7 +36,7 @@ import scala.annotation.implicitNotFound
   * extension[T] (it: IterableOnce[T])
   *   def tryFoldLeft[U, E](init: U)(f: (U, T) => Result[U, E]) =
   *     Result:
-  *       it.iterator.foldLeft(init)(f(_, _).?)
+  *       it.iterator.foldLeft(init)(f(_, _).ok)
   * }}}
   *
   * Conversions from [[Option]] and [[Either]] are available in
@@ -191,15 +191,10 @@ object Result:
       case Ok(value) => Some(value)
       case Err(_)    => None
 
-    /** Returns the [[Ok]] value from the result. An alias of [[toOption]].
-      * @group convert
-      */
-    inline def ok: Option[T] = toOption
-
     /** Returns the [[Err]] error from the result.
       * @group convert
       */
-    def err: Option[E] = r match
+    def errOption: Option[E] = r match
       case Ok(_)      => None
       case Err(error) => Some(error)
 
@@ -423,7 +418,7 @@ object Result:
   /** Evaluates `body`, returning the output as an [[Ok]] value.
     *
     * Within `body`:
-    *   - [[eval.`?`]] can be used to unwrap [[Result]] values, with the body
+    *   - [[eval.ok]] can be used to unwrap [[Result]] values, with the body
     *     short-circuiting back with the error.
     *   - [[eval.raise]] can be used to quickly short-circuit with an error.
     * @group eval
@@ -435,7 +430,7 @@ object Result:
   /** Operations that are valid under a [[Result.apply]] scope.
     * @group eval
     * @see
-    *   [[eval.?]], [[eval.raise]] and [[eval.break]]
+    *   [[eval.ok]], [[eval.raise]] and [[eval.break]]
     */
   object eval:
     /** Similar to [[Result.apply]]. */
@@ -479,8 +474,8 @@ object Result:
       *       seq match
       *         case Seq() => init
       *         case Seq(h, t*) =>
-      *           // t.tryFoldLeft(f(init, h).?)(f).?        // error: not a tail call (.? applied at the end)
-      *           eval.break(t.tryFoldLeft(f(init, h).?)(f)) // ok
+      *           // t.tryFoldLeft(f(init, h).ok)(f).ok        // error: not a tail call (.ok applied at the end)
+      *           eval.break(t.tryFoldLeft(f(init, h).ok)(f)) // ok
       * }}}
       *
       * Note that however, in most cases, it is simpler to capture the
@@ -495,7 +490,7 @@ object Result:
       *       def loop(current: U, seq: Seq[T]): U = // note the return type
       *         seq match
       *           case Seq() => current
-      *           case Seq(h, t*) => loop(f(current, h).?, t)
+      *           case Seq(h, t*) => loop(f(current, h).ok, t)
       *       loop(init, seq)
       * }}}
       *
@@ -504,7 +499,7 @@ object Result:
       * extension[T] (it: IterableOnce[T])
       *   def tryFoldLeft[U, E](init: U)(f: (U, T) => Result[U, E]): Result[U, E] =
       *     Result:
-      *       it.iterator.foldLeft(init)(f(_, _).?)
+      *       it.iterator.foldLeft(init)(f(_, _).ok)
       * }}}
       *
       * @return
@@ -546,7 +541,7 @@ ${(resultsIncompatible ++ errorsIncompatible).mkString("\n")}
 Perhaps you want to:
   - Unwrap the `Result`, returning `${Type.show[T]}`:
 
-    ${r.show}.?
+    ${r.show}.ok
 
   - Map the resulting value to another type with `.map` or `.mapError`
 
@@ -564,12 +559,12 @@ Perhaps you want to:
 
     extension [T, E, E1](r: Result[T, E])(using
         @implicitNotFound(
-          "`.?` cannot be used outside of the `Result.apply` scope."
+          "`.ok` cannot be used outside of the `Result.apply` scope."
         )
         label: boundary.Label[Err[E1]]
     )(using
         @implicitNotFound(
-          """`.?` cannot be used here, as the error types of this Result (${E}) and `Result.apply` (${E1}) are incompatible. Consider changing the error type of `Result.apply`, or provide a conversion between the error types through an instance of the `Conversion` trait:
+          """`.ok` cannot be used here, as the error types of this Result (${E}) and `Result.apply` (${E1}) are incompatible. Consider changing the error type of `Result.apply`, or provide a conversion between the error types through an instance of the `Conversion` trait:
 
     given Conversion[${E}, ${E1}] = ???
 
@@ -585,15 +580,15 @@ Perhaps you want to:
         * val err = Err("fail!")
         *
         * val compute = Result:
-        *   ok.?      // ok, unwraps and gives 1
-        *     + err.? // error, immediately sets compute to Err("fail")
+        *   ok.ok      // ok, unwraps and gives 1
+        *     + err.ok // error, immediately sets compute to Err("fail")
         *     + f()   // not evaluated
         * }}}
         * @group eval
         * @see
         *   [[apply]] and [[raise]].
         */
-      inline def `?` : T =
+      inline def ok: T =
         r match
           case Ok(value)  => value
           case Err(error) => raise(error)

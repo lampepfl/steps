@@ -10,7 +10,7 @@ class CollectionTest extends munit.FunSuite {
     extension [T](s: Iterable[T])
       def tryMap[U, E](f: T => Result[U, E]) =
         Result:
-          s.map(f(_).?)
+          s.map(f(_).ok)
 
     def getEven(v: Int) =
       if v % 2 == 0 then Ok(v) else Err("not even number")
@@ -25,7 +25,7 @@ class CollectionTest extends munit.FunSuite {
     val evens =
       (1 to 5)
         .map(getEven)
-        .flatMap(_.ok)
+        .flatMap(_.toOption)
 
     assertEquals(evens, Seq(2, 4).toIndexedSeq)
   }
@@ -44,6 +44,6 @@ class CollectionTest extends munit.FunSuite {
 
       def tryMap[U, E](f: T => Result[U, E]) =
         Result:
-          t.map(f(_).?)
+          t.map(f(_).ok)
   }
 }

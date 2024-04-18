@@ -114,10 +114,10 @@ class ResultTest extends munit.FunSuite {
   }
 
   test("conversions") {
-    assertEquals(ok.ok, Some(1))
-    assertEquals(err.ok, None)
-    assertEquals(ok.err, None)
-    assertEquals(err.err, Some("bad"))
+    assertEquals(ok.toOption, Some(1))
+    assertEquals(err.toOption, None)
+    assertEquals(ok.errOption, None)
+    assertEquals(err.errOption, Some("bad"))
     assertEquals(ok.toOption, Some(1))
     assertEquals(err.toOption, None)
 
@@ -158,10 +158,10 @@ class ResultTest extends munit.FunSuite {
       Result:
         if input < 1 then eval.raise(NoLog)
         else if input == 1 then 0
-        else log2(input / 2).? + 1
+        else log2(input / 2).ok + 1
 
     Result[Int, Exception]: label ?=>
-      log2(5).?
+      log2(5).ok
 
     assertEquals(log2(4), Ok(2))
     assertEquals(log2(-1), Err(LogErr.NL(NoLog)))
@@ -179,7 +179,7 @@ class ResultTest extends munit.FunSuite {
         s match
           case Seq() => init
           case Seq(h, t*) =>
-            val next = f(init, h).?
+            val next = f(init, h).ok
             eval.break(tryFoldLeft(next, f)(t))
   }
 
@@ -202,12 +202,12 @@ class ResultTest extends munit.FunSuite {
   // Error message tests, uncomment to see.
 
   // test("outside of scope") {
-  //   val x = ok.?
+  //   val x = ok.ok
   // }
 
   // test("wrong error type") {
   //   Result[Int, Int]:
-  //     val x = ok.?
+  //     val x = ok.ok
   //     val y = eval.raise("a")
   //     1
   // }
