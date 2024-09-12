@@ -1,6 +1,6 @@
-import dotty.result.Result
-import dotty.result.Result.*
-import dotty.result.Result.eval.*
+import steps.result.Result
+import steps.result.Result.*
+import steps.result.Result.eval.*
 
 /** Tests working with collection. */
 class CollectionTest extends munit.FunSuite {

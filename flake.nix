@@ -1,5 +1,5 @@
 {
-  description = "scala-result";
+  description = "steps";
 
   inputs = {
     flake-parts.url = "github:hercules-ci/flake-parts";

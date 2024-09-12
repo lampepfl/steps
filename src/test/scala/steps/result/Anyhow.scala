@@ -1,8 +1,9 @@
-import dotty.result.Result
-import dotty.result.Result.*
-import dotty.result.Result.eval.*
 import scala.util.Try
 import scala.util.boundary
+
+import steps.result.Result
+import steps.result.Result.*
+import steps.result.Result.eval.*
 
 /** Just something to test. We don't encourage putting Throwables inside results
   * everywhere (just throw!!)
