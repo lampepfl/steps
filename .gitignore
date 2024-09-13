@@ -193,9 +193,10 @@ local.properties
 # Typically, this file would be tracked if it contains build/dependency configurations:
 #.project
 
-.vscode
-.idea
-.bsp
+.vscode/
+.idea/
+.bsp/
+.scala-build/
 
 ### direnv template
 .direnv
