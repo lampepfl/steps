@@ -3,6 +3,7 @@ package steps.annotation
 import scala.annotation.{experimental, MacroAnnotation}
 import scala.quoted.*
 import scala.collection.mutable.Map
+import scala.collection.concurrent.TrieMap
 
 @experimental
 class memoize extends MacroAnnotation:
@@ -30,7 +31,7 @@ class memoize extends MacroAnnotation:
     val symbol = Symbol.newVal(Symbol.spliceOwner, name, TypeRepr.of[Map[K, V]], Flags.Private, Symbol.spliceOwner)
     val rhs =
       given Quotes = symbol.asQuotes
-      '{ Map.empty[K, V] }.asTerm
+      '{ TrieMap.empty[K, V] }.asTerm
     end rhs
     ValDef(symbol, Some(rhs))
   end buildCache

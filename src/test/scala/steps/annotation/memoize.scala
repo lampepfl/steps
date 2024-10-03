@@ -3,7 +3,7 @@ package steps.annotation
 import scala.annotation.experimental
 
 @experimental
-class FibonacciMemoize extends munit.FunSuite:
+final class FibonacciMemoize extends munit.FunSuite:
 
   @memoize
   def fib(n: Int): Int =
