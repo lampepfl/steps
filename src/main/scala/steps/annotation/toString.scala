@@ -46,7 +46,7 @@ final class toString extends MacroAnnotation:
     val toStringSym = Symbol.requiredMethod("java.lang.Object.toString")
     tree match
       case _: ClassDef if toStringSym.overridingSymbol(tree.symbol).exists =>
-        report.warning(s"@toString is not necessary since hashcode is defined in ${tree.symbol}")
+        report.warning(s"@toString is not necessary since toString is defined in ${tree.symbol}")
         List(tree)
       case cls: ClassDef if cls.symbol.flags.is(Flags.Trait) =>
         report.error(s"@toString is not supported in traits")
