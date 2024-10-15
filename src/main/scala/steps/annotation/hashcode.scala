@@ -13,6 +13,12 @@ final class hashcode extends MacroAnnotation:
       case _: ClassDef if hashCodeSym.overridingSymbol(tree.symbol).exists => 
         report.warning(s"@hashcode is not necessary since hashcode is defined in ${tree.symbol}")
         List(tree)
+      case cls: ClassDef if cls.symbol.flags.is(Flags.Trait) =>
+        report.error(s"@hashcode is not supported in traits")
+        List(tree)
+      case cls: ClassDef if cls.symbol.flags.is(Flags.Module) =>
+        report.error(s"@hashcode is not supported in object")
+        List(tree)
       case ClassDef(className, ctr, parents, self, body) =>
         val cls = tree.symbol
 
@@ -29,7 +35,7 @@ final class hashcode extends MacroAnnotation:
 
         List(ClassDef.copy(tree)(className, ctr, parents, self, hashCodeOverrideDef  :: body))
       case _ => 
-        report.errorAndAbort("@hashcode is only supported in class/object/trait")
+        report.errorAndAbort("@hashcode is only supported in class")
     
   end transform
 
