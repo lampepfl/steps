@@ -49,10 +49,10 @@ final class toString extends MacroAnnotation:
         report.warning(s"@toString is not necessary since toString is defined in ${tree.symbol}")
         List(tree)
       case cls: ClassDef if cls.symbol.flags.is(Flags.Trait) =>
-        report.error(s"@toString is not supported in traits")
+        report.error(s"@toString is not supported on traits")
         List(tree)
       case cls: ClassDef if cls.symbol.flags.is(Flags.Module) =>
-        report.error(s"@toString is not supported in object")
+        report.error(s"@toString is not supported on objects")
         List(tree)
       case ClassDef(className, ctr, parents, self, body) =>
         val cls = tree.symbol
@@ -62,7 +62,7 @@ final class toString extends MacroAnnotation:
             Select(This(cls), vdef.symbol).asExpr
         }
 
-        val toStringOverrideSym = Symbol.newMethod(cls, "toString", toStringSym.info, Flags.Override, Symbol.noSymbol)
+        val toStringOverrideSym = Symbol.newMethod(cls, toStringSym.name, toStringSym.info, Flags.Override, Symbol.noSymbol)
 
         def toStringOverrideDefBody(argss: List[List[Tree]]): Option[Term] =
           given Quotes = toStringOverrideSym.asQuotes
@@ -71,7 +71,7 @@ final class toString extends MacroAnnotation:
         val toStringDef = DefDef(toStringOverrideSym, toStringOverrideDefBody)
         List(ClassDef.copy(tree)(className, ctr, parents, self, toStringDef :: body))
       case _ =>
-        report.errorAndAbort("@toString is only supported in class")
+        report.errorAndAbort("@toString is only supported on class")
   end transform
 
   /**
