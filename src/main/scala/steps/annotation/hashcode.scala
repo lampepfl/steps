@@ -67,7 +67,7 @@ final class hashCode extends MacroAnnotation:
             Select(This(cls), vdef.symbol).asExpr
         end fields
 
-        val hashCodeOverrideSym = Symbol.newMethod(cls, hashCodeSym.name, hashCodeSym.info, Flags.Override | Flags.Final, Symbol.noSymbol)
+        val hashCodeOverrideSym = Symbol.newMethod(cls, hashCodeSym.name, hashCodeSym.info, Flags.Override, Symbol.noSymbol)
         val hashCodeOverrideDef = DefDef(hashCodeOverrideSym, _ =>
           given Quotes = hashCodeOverrideSym.asQuotes
           Some(hashCodeExpr(className, fields).asTerm)
