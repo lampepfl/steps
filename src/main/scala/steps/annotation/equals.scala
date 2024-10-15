@@ -13,7 +13,7 @@ import scala.quoted.*
  * Example usage:
  * {{{
  * @equals
- * case class Person(name: String, age: Int)
+ * class Person(name: String, age: Int)
  *
  * val person1 = Person("Alice", 25)
  * val person2 = Person("Alice", 25)
@@ -62,7 +62,7 @@ final class equals extends MacroAnnotation:
         List(tree)
       case ClassDef(className, ctr, parents, self, body) =>
         val cls = tree.symbol
-        val equalsOverrideSym = Symbol.newMethod(cls, equalsSym.name, equalsSym.info, Flags.Override | Flags.Final, Symbol.noSymbol)
+        val equalsOverrideSym = Symbol.newMethod(cls, equalsSym.name, equalsSym.info, Flags.Override, Symbol.noSymbol)
 
         val fields = body.collect {
           case vdef: ValDef if vdef.symbol.flags.is(Flags.ParamAccessor) =>
