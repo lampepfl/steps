@@ -12,6 +12,12 @@ final class toString extends MacroAnnotation:
       case _: ClassDef if toStringSym.overridingSymbol(tree.symbol).exists =>
         report.warning(s"@toString is not necessary since hashcode is defined in ${tree.symbol}")
         List(tree)
+      case cls: ClassDef if cls.symbol.flags.is(Flags.Trait) =>
+        report.error(s"@toString is not supported in traits")
+        List(tree)
+      case cls: ClassDef if cls.symbol.flags.is(Flags.Module) =>
+        report.error(s"@toString is not supported in object")
+        List(tree)
       case ClassDef(className, ctr, parents, self, body) =>
         val cls = tree.symbol
 
@@ -29,7 +35,7 @@ final class toString extends MacroAnnotation:
         val toStringDef = DefDef(toStringOverrideSym, toStringOverrideDefBody)
         List(ClassDef.copy(tree)(className, ctr, parents, self, toStringDef :: body))
       case _ =>
-        report.errorAndAbort("@toString is only supported in class/object/trait")
+        report.errorAndAbort("@toString is only supported in class")
   end transform
 
   private def toStringExpr(className: String, thisFields: List[Expr[Any]])(using Quotes): Expr[String] =
