@@ -11,11 +11,17 @@ final class equals extends MacroAnnotation:
     val equalsSym = Symbol.requiredMethod("java.lang.Object.equals")
     tree match
       case _: ClassDef if equalsSym.overridingSymbol(tree.symbol).exists =>
-        report.warning(s"@equals is not necessary since hashcode is defined in ${tree.symbol}")
+        report.warning(s"@equals is not necessary since equals is defined in ${tree.symbol}")
+        List(tree)
+      case cls: ClassDef if cls.symbol.flags.is(Flags.Trait) =>
+        report.error(s"@equals is not supported in traits")
+        List(tree)
+      case cls: ClassDef if cls.symbol.flags.is(Flags.Module) =>
+        report.error(s"@equals is not supported in object")
         List(tree)
       case ClassDef(className, ctr, parents, self, body) =>
         val cls = tree.symbol
-        val equalsOverrideSym = Symbol.newMethod(cls, "equals", equalsSym.info, Flags.Override | Flags.Final, Symbol.noSymbol)
+        val equalsOverrideSym = Symbol.newMethod(cls, equalsSym.name, equalsSym.info, Flags.Override | Flags.Final, Symbol.noSymbol)
 
         val fields = body.collect {
           case vdef: ValDef if vdef.symbol.flags.is(Flags.ParamAccessor) =>
@@ -33,7 +39,7 @@ final class equals extends MacroAnnotation:
         val equalsDefDef = DefDef(equalsOverrideSym, equalsOverrideDefBody)
         List(ClassDef.copy(tree)(className, ctr, parents, self, equalsDefDef :: body))
       case _ =>
-        report.errorAndAbort("@equals is only supported in class/object/trait")
+        report.errorAndAbort("@equals is only supported in class")
   end transform
 
 
