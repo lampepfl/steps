@@ -32,7 +32,7 @@ import scala.collection.concurrent.TrieMap
  *       (i.e., `import scala.annotation.experimental`), as it uses experimental macro annotation features.
  */
 @experimental
-class memoize extends MacroAnnotation:
+final class memoize(concurrent: Boolean = true) extends MacroAnnotation:
 
   /**
    * Transforms the annotated method into one that utilizes memoization.
@@ -78,7 +78,9 @@ class memoize extends MacroAnnotation:
     val symbol = Symbol.newVal(Symbol.spliceOwner, name, TypeRepr.of[Map[K, V]], Flags.Private, Symbol.spliceOwner)
     val rhs =
       given Quotes = symbol.asQuotes
-      '{ TrieMap.empty[K, V] }.asTerm
+      if concurrent then '{ TrieMap.empty[K, V] }.asTerm
+      else '{ Map.empty[K, V] }.asTerm
+
     end rhs
     ValDef(symbol, Some(rhs))
   end buildCache
