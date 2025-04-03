@@ -2,6 +2,8 @@
   */
 package steps.result
 
+import language.experimental.captureChecking
+
 import java.{util => ju}
 import scala.util.control.NonFatal
 import scala.util.boundary
@@ -424,7 +426,7 @@ object Result:
     * @group eval
     */
   inline def apply[T, E](
-      inline body: boundary.Label[Result[T, E]] ?=> T
+      inline body: boundary.Label[Result[T, E]]^ ?=> T
   ): Result[T, E] = eval(body)
 
   /** Operations that are valid under a [[Result.apply]] scope.
@@ -435,7 +437,7 @@ object Result:
   object eval:
     /** Similar to [[Result.apply]]. */
     inline def apply[T, E](
-        inline body: boundary.Label[Result[T, E]] ?=> T
+        inline body: boundary.Label[Result[T, E]]^ ?=> T
     ): Result[T, E] =
       boundary(Ok(body))
 
@@ -448,7 +450,7 @@ object Result:
         @implicitNotFound(
           "`raise` cannot be used outside of the `Result.apply` scope."
         )
-        label: boundary.Label[Err[E1]]
+        label: boundary.Label[Err[E1]]^
     )(using
         @implicitNotFound(
           """`raise` cannot be used here, as the error types of this Result (${E}) and `Result.apply` (${E1}) are incompatible. Consider changing the error type of `Result.apply`, or provide a conversion between the error types through an instance of the `Conversion` trait:
@@ -506,56 +508,65 @@ object Result:
       *   Always returns [[Nothing]], but the return type is set so that Scala
       *   does not infer `T` and `E` contravariantly.
       */
-    transparent inline def break[T, E](inline r: Result[T, E]): Result[T, E] =
-      ${ breakImpl('r) }
-    // inline def break[T, E](inline r: Result[T, E]): Nothing = ???
+    // transparent inline def break[T, E](inline r: Result[T, E]): Result[T, E] =
+    //   ${ breakImpl('r) }
+    transparent inline def break[T, E](inline r: Result[T, E])(using
+        @implicitNotFound(
+          "`break` cannot be used outside of a corresponding `Result.apply` scope."
+        )
+      label: boundary.Label[Result[T, E]]) =
+      boundary.break(r)
+      // compiletime.summonFrom: 
+      //   case l: boundary.Label[Result[T, E]] => boundary.break(r)(using l)
+      //   case l: boundary.Label[Result[Nothing, Nothing]] => ???
+      //   case _ => ???
 
-    private object breakImpl:
-      import scala.quoted.*
-      def apply[T, E](r: Expr[Result[T, E]])(using Quotes, Type[T], Type[E]) =
-        Expr.summon[boundary.Label[Result[T, E]]] match
-          case Some(l) => '{ boundary.break(${ r })(using ${ l }) }
-          case None =>
-            Expr.summon[boundary.Label[Result[Nothing, Nothing]]] match
-              case Some(label) =>
-                label match
-                  case '{ $label: boundary.Label[Result[lt, le]] } =>
-                    type gotLabel = Result[lt, le]
-                    val resultsIncompatible =
-                      if Expr.summon[T <:< lt].isEmpty then
-                        Seq(s"  - The result types are not compatible: `${Type
-                            .show[T]}` is not a sub-type of `${Type.show[lt]}`")
-                      else Seq()
-                    val errorsIncompatible =
-                      if Expr.summon[E <:< le].isEmpty then
-                        Seq(s"  - The error types are not compatible: `${Type
-                            .show[E]}` is not a sub-type of `${Type.show[le]}`")
-                      else Seq()
-                    quotes.reflect.report.errorAndAbort(
-                      s"""`break` cannot be used here with a value of type `${Type
-                          .show[Result[T, E]]}`,
-as the return type of the current `Result.apply` scope is different: `${Type
-                          .show[gotLabel]}`:
-${(resultsIncompatible ++ errorsIncompatible).mkString("\n")}
+//     private object breakImpl:
+//       import scala.quoted.*
+//       def apply[T, E](r: Expr[Result[T, E]])(using Quotes, Type[T], Type[E]) =
+//         Expr.summon[boundary.Label[Result[T, E]]^{}] match
+//           case Some(l) => '{ boundary.break(${ r })(using ${ l }) }
+//           case None =>
+//             Expr.summon[boundary.Label[Result[Nothing, Nothing]]^{}] match
+//               case Some(label) =>
+//                 label match
+//                   case '{ $label: boundary.Label[Result[lt, le]]^{} } =>
+//                     type gotLabel = Result[lt, le]
+//                     val resultsIncompatible =
+//                       if Expr.summon[T <:< lt].isEmpty then
+//                         Seq(s"  - The result types are not compatible: `${Type
+//                             .show[T]}` is not a sub-type of `${Type.show[lt]}`")
+//                       else Seq()
+//                     val errorsIncompatible =
+//                       if Expr.summon[E <:< le].isEmpty then
+//                         Seq(s"  - The error types are not compatible: `${Type
+//                             .show[E]}` is not a sub-type of `${Type.show[le]}`")
+//                       else Seq()
+//                     quotes.reflect.report.errorAndAbort(
+//                       s"""`break` cannot be used here with a value of type `${Type
+//                           .show[Result[T, E]]}`,
+// as the return type of the current `Result.apply` scope is different: `${Type
+//                           .show[gotLabel]}`:
+// ${(resultsIncompatible ++ errorsIncompatible).mkString("\n")}
 
-Perhaps you want to:
-  - Unwrap the `Result`, returning `${Type.show[T]}`:
+// Perhaps you want to:
+//   - Unwrap the `Result`, returning `${Type.show[T]}`:
 
-    ${r.show}.ok
+//     ${r.show}.ok
 
-  - Map the resulting value to another type with `.map` or `.mapError`
+//   - Map the resulting value to another type with `.map` or `.mapError`
 
-    ${r.show}
-      .map(value => ???)
-    ${r.show}
-      .mapError(error => ???)
+//     ${r.show}
+//       .map(value => ???)
+//     ${r.show}
+//       .mapError(error => ???)
 
-"""
-                    )
-              case None =>
-                quotes.reflect.report.errorAndAbort(
-                  "`break` cannot be used outside of a `Result.apply` scope."
-                )
+// """
+//                     )
+//               case None =>
+//                 quotes.reflect.report.errorAndAbort(
+//                   "`break` cannot be used outside of a `Result.apply` scope."
+//                 )
 
     extension [T, E, E1](r: Result[T, E])(using
         @implicitNotFound(

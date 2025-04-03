@@ -1,4 +1,4 @@
-val scala3Version = "3.6.3"
+val scala3Version = "3.7.1-RC1-bin-SNAPSHOT"
 
 inThisBuild(
   List(
@@ -40,6 +40,9 @@ lazy val root = project
     libraryDependencies ++= Seq(
       "org.scala-lang" %% "scala2-library-cc-tasty-experimental" % scala3Version,
       "org.scalameta" %% "munit" % "0.7.29" % Test
+    ),
+    scalacOptions ++= Seq(
+      // "-Xprint:cc"
     ),
     Compile / doc / scalacOptions ++= Seq(
       "-groups"

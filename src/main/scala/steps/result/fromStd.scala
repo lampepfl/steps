@@ -1,5 +1,7 @@
 package steps.result
 
+import language.experimental.captureChecking
+
 import scala.util.{Try, Success, Failure}
 
 /** Provides extension methods convert Scala API optional value containers into
