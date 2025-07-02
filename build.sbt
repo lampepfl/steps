@@ -1,4 +1,4 @@
-val scala3Version = "3.7.1-RC1-bin-SNAPSHOT"
+val scala3Version = "3.7.1"
 
 inThisBuild(
   List(
