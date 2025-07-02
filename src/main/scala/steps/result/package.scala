@@ -508,13 +508,11 @@ object Result:
       *   Always returns [[Nothing]], but the return type is set so that Scala
       *   does not infer `T` and `E` contravariantly.
       */
-    // transparent inline def break[T, E](inline r: Result[T, E]): Result[T, E] =
-    //   ${ breakImpl('r) }
-    transparent inline def break[T, E](inline r: Result[T, E])(using
+    inline def break[T, E](inline r: Result[T, E])(using
         @implicitNotFound(
           "`break` cannot be used outside of a corresponding `Result.apply` scope."
         )
-      label: boundary.Label[Result[T, E]]) =
+      label: boundary.Label[Result[T, E]]): Nothing =
       boundary.break(r)
       // compiletime.summonFrom: 
       //   case l: boundary.Label[Result[T, E]] => boundary.break(r)(using l)
