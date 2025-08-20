@@ -1,5 +1,7 @@
 import scala.util.Try
 
+import language.experimental.captureChecking
+
 import steps.result.Result
 import steps.result.Result.*
 import steps.result.Result.eval.*
@@ -219,5 +221,10 @@ class ResultTest extends munit.FunSuite {
   //   Result[Int, Int]:
   //     val z = eval.break(err)
   //     1
+  // }
+
+  // test("leakage") {
+  //   Result[util.boundary.Label[?], Any]: (label: util.boundary.Label[?]) ?=>
+  //     label
   // }
 }
