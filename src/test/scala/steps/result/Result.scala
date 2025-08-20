@@ -224,7 +224,7 @@ class ResultTest extends munit.FunSuite {
   // }
 
   // test("leakage") {
-  //   Result[util.boundary.Label[?], Any]: label ?=>
+  //   Result[util.boundary.Label[?], Any]: (label: util.boundary.Label[?]) ?=>
   //     label
   // }
 }

@@ -1,4 +1,5 @@
-val scala3Version = "3.7.1"
+val scala3Version = "3.8.0-RC1-bin-20250818-aaa39c5-NIGHTLY"
+resolvers += ("Artifactory" at "https://repo.scala-lang.org/artifactory/maven-nightlies/")
 
 inThisBuild(
   List(
@@ -38,7 +39,7 @@ lazy val root = project
     name := "steps",
     scalaVersion := scala3Version,
     libraryDependencies ++= Seq(
-      "org.scala-lang" %% "scala2-library-cc-tasty-experimental" % scala3Version,
+      // "org.scala-lang" %% "scala2-library-cc-tasty-experimental" % scala3Version,
       "org.scalameta" %% "munit" % "0.7.29" % Test
     ),
     scalacOptions ++= Seq(

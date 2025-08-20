@@ -426,7 +426,7 @@ object Result:
     * @group eval
     */
   inline def apply[T, E](
-      inline body: boundary.Label[Result[T, E]]^ ?=> T
+      inline body: boundary.Label[Result[T, E]] ?=> T
   ): Result[T, E] = eval(body)
 
   /** Operations that are valid under a [[Result.apply]] scope.
@@ -437,7 +437,7 @@ object Result:
   object eval:
     /** Similar to [[Result.apply]]. */
     inline def apply[T, E](
-        inline body: boundary.Label[Result[T, E]]^ ?=> T
+        inline body: boundary.Label[Result[T, E]] ?=> T
     ): Result[T, E] =
       boundary(Ok(body))
 
@@ -450,7 +450,7 @@ object Result:
         @implicitNotFound(
           "`raise` cannot be used outside of the `Result.apply` scope."
         )
-        label: boundary.Label[Err[E1]]^
+        label: boundary.Label[Err[E1]]
     )(using
         @implicitNotFound(
           """`raise` cannot be used here, as the error types of this Result (${E}) and `Result.apply` (${E1}) are incompatible. Consider changing the error type of `Result.apply`, or provide a conversion between the error types through an instance of the `Conversion` trait:
@@ -512,9 +512,10 @@ object Result:
         @implicitNotFound(
           "`break` cannot be used outside of a corresponding `Result.apply` scope."
         )
-      label: boundary.Label[Result[T, E]]): Nothing =
+        label: boundary.Label[Result[T, E]]
+    ): Nothing =
       boundary.break(r)
-      // compiletime.summonFrom: 
+      // compiletime.summonFrom:
       //   case l: boundary.Label[Result[T, E]] => boundary.break(r)(using l)
       //   case l: boundary.Label[Result[Nothing, Nothing]] => ???
       //   case _ => ???
