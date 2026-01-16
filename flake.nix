@@ -24,7 +24,7 @@
         # Equivalent to  inputs'.nixpkgs.legacyPackages.hello;
         # packages.default = pkgs.hello;
         devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [ jdk21 scala-cli metals scalafmt ];
+          buildInputs = with pkgs; [ jdk21 scala-cli metals scalafmt sbt ];
         };
       };
       flake = {
