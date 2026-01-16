@@ -126,7 +126,7 @@ enum Result[+T, +E] extends IterableOnce[T]:
   // IterableOnce implementation
 
   def iterator: Iterator[T] = this match
-    case Ok(value) => Iterator(value)
+    case Ok(value) => Iterator.single(value)
     case Err(_)    => Iterator.empty
 
   override def knownSize: Int = this match
