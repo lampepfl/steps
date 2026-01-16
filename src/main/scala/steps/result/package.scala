@@ -8,6 +8,7 @@ import java.{util => ju}
 import scala.util.control.NonFatal
 import scala.util.boundary
 import scala.annotation.implicitNotFound
+import scala.Conversion.into
 
 /** Represents either a success value of type `T` or an error of type `E`. It
   * can be used when expecting results that have errors that should be inspected
@@ -147,6 +148,9 @@ end Result
   * @groupprio access 2
   */
 object Result:
+  given convertErr: [T, E, E1] => Conversion[E, E1] => Conversion[Result[T, E], Result[T, E1]] =
+    _.mapErr(_.convert)
+
   /** An exception obtained by calling [[Result.get get]] on a [[Result.Err]].
     * @param error
     *   the error value that was enclosed in the variant.
@@ -441,27 +445,17 @@ object Result:
     ): Result[T, E] =
       boundary(Ok(body))
 
-    // type From[T] = [U] =>> Conversion[T, U]
     /** Short-circuits the current `body` under [[Result$.apply Result.apply]]
       * with the given error.
       * @group eval
       */
-    inline def raise[E, E1](err: E)(using
+    inline def raise[E](using
         @implicitNotFound(
           "`raise` cannot be used outside of the `Result.apply` scope."
         )
-        label: boundary.Label[Err[E1]]
-    )(using
-        @implicitNotFound(
-          """`raise` cannot be used here, as the error types of this Result (${E}) and `Result.apply` (${E1}) are incompatible. Consider changing the error type of `Result.apply`, or provide a conversion between the error types through an instance of the `Conversion` trait:
-
-    given Conversion[${E}, ${E1}] = ???
-
-"""
-        )
-        conversion: Conversion[E, E1]
-    ): Nothing =
-      boundary.break(new Err(err.convert))
+        label: boundary.Label[Err[E]]
+    )(err: into[E]): Nothing =
+      boundary.break(new Err(err))
 
     /** A shorthand to call [[scala.util.boundary.break boundary.break]] with a
       * [[Result]] label. This is useful in case an early return is needed, or a
@@ -508,12 +502,12 @@ object Result:
       *   Always returns [[Nothing]], but the return type is set so that Scala
       *   does not infer `T` and `E` contravariantly.
       */
-    inline def break[T, E](inline r: Result[T, E])(using
+    inline def break[T, E](using
         @implicitNotFound(
           "`break` cannot be used outside of a corresponding `Result.apply` scope."
         )
         label: boundary.Label[Result[T, E]]
-    ): Nothing =
+    )(inline r: into[Result[T, E]]): Nothing =
       boundary.break(r)
       // compiletime.summonFrom:
       //   case l: boundary.Label[Result[T, E]] => boundary.break(r)(using l)
@@ -567,21 +561,12 @@ object Result:
 //                   "`break` cannot be used outside of a `Result.apply` scope."
 //                 )
 
-    extension [T, E, E1](r: Result[T, E])(using
+    extension [T, E](using
         @implicitNotFound(
           "`.ok` cannot be used outside of the `Result.apply` scope."
         )
-        label: boundary.Label[Err[E1]]
-    )(using
-        @implicitNotFound(
-          """`.ok` cannot be used here, as the error types of this Result (${E}) and `Result.apply` (${E1}) are incompatible. Consider changing the error type of `Result.apply`, or provide a conversion between the error types through an instance of the `Conversion` trait:
-
-    given Conversion[${E}, ${E1}] = ???
-
-"""
-        )
-        conversion: Conversion[E, E1]
-    )
+        label: boundary.Label[Err[E]]
+    )(r: into[Result[T, E]])
       /** Unwraps the result, returning the value under [[Ok]]. Short-circuits
         * the current `body` under [[Result$.apply Result.apply]] with the given
         * error if the result is an [[Err]].

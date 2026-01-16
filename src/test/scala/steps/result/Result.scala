@@ -8,8 +8,6 @@ import steps.result.Result.eval.*
 
 class ResultTest extends munit.FunSuite {
 
-  import steps.result.Conversions.Compat.given
-
   val ok: Result[Int, String] = Ok(1)
   val err: Result[Int, String] = Err("bad")
 

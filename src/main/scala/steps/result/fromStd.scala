@@ -45,17 +45,6 @@ object ScalaConverters:
   * import Conversions.Lift.given
   *
   * }}}
-  *
-  * Additionally, `import Conversions.Compat.given` provides an instance of
-  * `Conversion[T, T]` to aid with using [[Result.eval]] functions.
-  *
-  * {{{
-  * import Conversions.Compat.given
-  *
-  * val ok: Result[Int, String] = Ok(3)
-  * Result[Int, Any]:
-  *   ok.? // Ok, Conversion[String, Any] is present
-  * }}}
   */
 object Conversions:
   import ScalaConverters.*
@@ -73,4 +62,5 @@ object Conversions:
     given [T]: Conversion[T, Result[T, Nothing]] = Result.Ok(_)
 
   object Compat:
+    @deprecated("No longer needed with redesign using Conversion.into")
     inline given [T]: Conversion[T, T] = identity

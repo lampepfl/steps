@@ -4,7 +4,6 @@ import steps.result.Result.eval.*
 
 /** Tests working with collection. */
 class CollectionTest extends munit.FunSuite {
-  given [T]: Conversion[T, T] = identity
 
   test("tryMap on iterable") {
     extension [T](s: Iterable[T])
