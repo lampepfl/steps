@@ -514,6 +514,14 @@ object Result:
       //   case l: boundary.Label[Result[Nothing, Nothing]] => ???
       //   case _ => ???
 
+    private inline def breakErr[T, E](using
+        @implicitNotFound(
+          "`break` cannot be used outside of a corresponding `Result.apply` scope."
+        )
+        label: boundary.Label[Err[E]]
+    )(inline r: Err[E]): Nothing =
+      boundary.break(r)
+
 //     private object breakImpl:
 //       import scala.quoted.*
 //       def apply[T, E](r: Expr[Result[T, E]])(using Quotes, Type[T], Type[E]) =
@@ -561,12 +569,20 @@ object Result:
 //                   "`break` cannot be used outside of a `Result.apply` scope."
 //                 )
 
-    extension [T, E](using
-        @implicitNotFound(
-          "`.ok` cannot be used outside of the `Result.apply` scope."
-        )
-        label: boundary.Label[Err[E]]
-    )(r: into[Result[T, E]])
+    sealed trait ConvErr[-E1, +E2]:
+      def apply(e: Err[E1]): Err[E2]
+
+    object ConvErr:
+      private object IdentityConvErr extends ConvErr[Any, Any]:
+        def apply(e: Err[Any]): e.type = e
+
+      given identityConvert: [E1 <: E2, E2] => ConvErr[E1, E2] =
+        IdentityConvErr.asInstanceOf[ConvErr[E1, E2]]
+
+      given delegateConvert: [E1, E2] => Conversion[E1, E2] => ConvErr[E1, E2]:
+        def apply(e: Err[E1]): Err[E2] = Err(e.error.convert)
+
+    extension [T, E, E1](r: Result[T, E])
       /** Unwraps the result, returning the value under [[Ok]]. Short-circuits
         * the current `body` under [[Result$.apply Result.apply]] with the given
         * error if the result is an [[Err]].
@@ -583,9 +599,14 @@ object Result:
         * @see
         *   [[apply]] and [[raise]].
         */
-      inline def ok: T =
+      inline def ok(using
+        @implicitNotFound(
+          "`.ok` cannot be used outside of the `Result.apply` scope."
+        )
+        label: boundary.Label[Err[E1]]
+      )(using conv: ConvErr[E, E1]): T =
         r match
-          case Ok(value)  => value
-          case Err(error) => raise(error)
+          case Ok(value)   => value
+          case err: Err[E] => breakErr(conv(err))
 
 end Result

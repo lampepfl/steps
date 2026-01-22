@@ -60,7 +60,3 @@ object Conversions:
 
   object Lift:
     given [T]: Conversion[T, Result[T, Nothing]] = Result.Ok(_)
-
-  object Compat:
-    @deprecated("No longer needed with redesign using Conversion.into")
-    inline given [T]: Conversion[T, T] = identity

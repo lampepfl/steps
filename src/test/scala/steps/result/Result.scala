@@ -202,6 +202,19 @@ class ResultTest extends munit.FunSuite {
     assertEquals(err.knownSize, 0)
   }
 
+  test("scoping") {
+    given Conversion[Int, Bar] = Bar(_)
+    given Conversion[Foo, Bar] = f => Bar(f.x)
+    class Bar(val x: Int)
+    class Foo(val x: Int)
+    Result[Int, Bar]: l1 ?=>
+      Result[String, Foo]: l2 ?=>
+        val r: Result[String, Int] = Result.Err(1)
+        val str: String =  r.ok(using l1)
+        str
+      .ok.length
+  }
+
   // Error message tests, uncomment to see.
 
   // test("outside of scope") {
