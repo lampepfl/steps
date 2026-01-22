@@ -148,8 +148,8 @@ end Result
   * @groupprio access 2
   */
 object Result:
-  given convertErr: [T, E, E1] => Conversion[E, E1] => Conversion[Result[T, E], Result[T, E1]] =
-    _.mapErr(_.convert)
+  given convertErr: [T, E, E1] => Conversion[E, E1] => Conversion[Err[E], Err[E1]] =
+    case Err(err) => Err(err.convert)
 
   /** An exception obtained by calling [[Result.get get]] on a [[Result.Err]].
     * @param error
@@ -453,8 +453,8 @@ object Result:
         @implicitNotFound(
           "`raise` cannot be used outside of the `Result.apply` scope."
         )
-        label: boundary.Label[Err[E]]
-    )(err: into[E]): Nothing =
+        inline label: boundary.Label[Err[E]]
+    )(inline err: into[E]): Nothing =
       boundary.break(new Err(err))
 
     /** A shorthand to call [[scala.util.boundary.break boundary.break]] with a
@@ -506,7 +506,7 @@ object Result:
         @implicitNotFound(
           "`break` cannot be used outside of a corresponding `Result.apply` scope."
         )
-        label: boundary.Label[Result[T, E]]
+        inline label: boundary.Label[Result[T, E]]
     )(inline r: into[Result[T, E]]): Nothing =
       boundary.break(r)
       // compiletime.summonFrom:
@@ -514,11 +514,11 @@ object Result:
       //   case l: boundary.Label[Result[Nothing, Nothing]] => ???
       //   case _ => ???
 
-    private inline def breakErr[T, E](using
+    private inline def breakErr[E](using
         @implicitNotFound(
           "`break` cannot be used outside of a corresponding `Result.apply` scope."
         )
-        label: boundary.Label[Err[E]]
+        inline label: boundary.Label[Err[E]]
     )(inline r: Err[E]): Nothing =
       boundary.break(r)
 
@@ -569,20 +569,16 @@ object Result:
 //                   "`break` cannot be used outside of a `Result.apply` scope."
 //                 )
 
-    sealed trait ConvErr[-E1, +E2]:
-      def apply(e: Err[E1]): Err[E2]
+    opaque type ConvErr[E, E1] = Conversion[Err[E], Err[E1]]
 
     object ConvErr:
-      private object IdentityConvErr extends ConvErr[Any, Any]:
-        def apply(e: Err[Any]): e.type = e
+      given IdentityConvErr: [E <: E1, E1] => ConvErr[E, E1] =
+        identity
 
-      given identityConvert: [E1 <: E2, E2] => ConvErr[E1, E2] =
-        IdentityConvErr.asInstanceOf[ConvErr[E1, E2]]
+      given DelegateConvErr: [E, E1] => (delegate: Conversion[Err[E], Err[E1]]) => ConvErr[E, E1] =
+        delegate
 
-      given delegateConvert: [E1, E2] => Conversion[E1, E2] => ConvErr[E1, E2]:
-        def apply(e: Err[E1]): Err[E2] = Err(e.error.convert)
-
-    extension [T, E, E1](r: Result[T, E])
+    extension [T, E, E1](inline r: Result[T, E])
       /** Unwraps the result, returning the value under [[Ok]]. Short-circuits
         * the current `body` under [[Result$.apply Result.apply]] with the given
         * error if the result is an [[Err]].
@@ -603,10 +599,13 @@ object Result:
         @implicitNotFound(
           "`.ok` cannot be used outside of the `Result.apply` scope."
         )
-        label: boundary.Label[Err[E1]]
-      )(using conv: ConvErr[E, E1]): T =
+        inline label: boundary.Label[Err[E1]]
+      )(using inline conv: ConvErr[E, E1]): T =
         r match
           case Ok(value)   => value
-          case err: Err[E] => breakErr(conv(err))
-
+          case err: Err[E] => inline compiletime.erasedValue[Err[E]] match
+            case _: Err[E1] =>
+              // trick to avoid actually summoning identity conversion
+              breakErr(err.asInstanceOf[Err[E1]])
+            case _ => breakErr(conv.convert(err))
 end Result
