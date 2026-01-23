@@ -8,7 +8,7 @@ import scala.util.{Try, Success, Failure}
   * [[Result]].
   *
   * By default, [[Result]] already provides conversions back into these
-  * containers through [[Result.ok]], [[Result.toEither]] and [[Result.toTry]].
+  * containers through [[Result.Ok]], [[Result.toEither]] and [[Result.toTry]].
   */
 object ScalaConverters:
   extension [T](op: Option[T])

@@ -202,7 +202,21 @@ class ResultTest extends munit.FunSuite {
     assertEquals(err.knownSize, 0)
   }
 
-  test("scoping") {
+  // using old design where .ok can be passed explicit label in postfix position
+  // test("scoping") {
+  //   given Conversion[Int, Bar] = Bar(_)
+  //   given Conversion[Foo, Bar] = f => Bar(f.x)
+  //   class Bar(val x: Int)
+  //   class Foo(val x: Int)
+  //   Result[Int, Bar]: l1 ?=>
+  //     Result[String, Foo]: l2 ?=>
+  //       val r: Result[String, Int] = Result.Err(1)
+  //       val str: String =  r.ok(using l1)
+  //       str
+  //     .ok.length
+  // }
+
+  test("scoping 2") {
     given Conversion[Int, Bar] = Bar(_)
     given Conversion[Foo, Bar] = f => Bar(f.x)
     class Bar(val x: Int)
@@ -210,12 +224,19 @@ class ResultTest extends munit.FunSuite {
     Result[Int, Bar]: l1 ?=>
       Result[String, Foo]: l2 ?=>
         val r: Result[String, Int] = Result.Err(1)
-        val str: String =  r.ok(using l1)
+        val str: String = eval.ok(using l1)(r)
         str
       .ok.length
   }
 
   // Error message tests, uncomment to see.
+
+  test("break error") {
+    given Conversion[String, Int] = _.length // comment for failure
+    Result[Int, Int]:
+      val z = eval.break(err)
+      1
+  }
 
   // test("outside of scope") {
   //   val x = ok.ok
@@ -225,12 +246,6 @@ class ResultTest extends munit.FunSuite {
   //   Result[Int, Int]:
   //     val x = ok.ok
   //     val y = eval.raise("a")
-  //     1
-  // }
-
-  // test("break error") {
-  //   Result[Int, Int]:
-  //     val z = eval.break(err)
   //     1
   // }
 
