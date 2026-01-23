@@ -8,7 +8,7 @@ import scala.util.{Try, Success, Failure}
   * [[Result]].
   *
   * By default, [[Result]] already provides conversions back into these
-  * containers through [[Result.ok]], [[Result.toEither]] and [[Result.toTry]].
+  * containers through [[Result.Ok]], [[Result.toEither]] and [[Result.toTry]].
   */
 object ScalaConverters:
   extension [T](op: Option[T])
@@ -45,17 +45,6 @@ object ScalaConverters:
   * import Conversions.Lift.given
   *
   * }}}
-  *
-  * Additionally, `import Conversions.Compat.given` provides an instance of
-  * `Conversion[T, T]` to aid with using [[Result.eval]] functions.
-  *
-  * {{{
-  * import Conversions.Compat.given
-  *
-  * val ok: Result[Int, String] = Ok(3)
-  * Result[Int, Any]:
-  *   ok.? // Ok, Conversion[String, Any] is present
-  * }}}
   */
 object Conversions:
   import ScalaConverters.*
@@ -71,6 +60,3 @@ object Conversions:
 
   object Lift:
     given [T]: Conversion[T, Result[T, Nothing]] = Result.Ok(_)
-
-  object Compat:
-    inline given [T]: Conversion[T, T] = identity

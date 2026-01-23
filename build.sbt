@@ -44,6 +44,7 @@ lazy val root = project
     ),
     scalacOptions ++= Seq(
       // "-Xprint:cc"
+      "-preview"
     ),
     Compile / doc / scalacOptions ++= Seq(
       "-groups"
