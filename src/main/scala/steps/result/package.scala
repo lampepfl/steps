@@ -430,6 +430,17 @@ object Result:
     */
   val empty: Result[EmptyTuple, Nothing] = Ok(EmptyTuple)
 
+  /** Construct a `Result[T, E]` based on the condition given in `test`.
+    * If the `test` succeeds (i.e. `test` is `true`), [[Ok]] with `ifTrue` is returned;
+    * otherwise, return [[Err]] with `ifFalse`.
+    * @group construct
+    */
+  inline def cond[T, E](
+    test: Boolean,
+    ifTrue: => T,
+    ifFalse: => E,
+  ): Result[T, E] = if test then Ok(ifTrue) else Err(ifFalse)
+
   // Boundary and break
 
   // Currently under its own object `eval` due to https://github.com/scala/scala3/issues/20126
