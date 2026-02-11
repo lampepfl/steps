@@ -416,7 +416,7 @@ object Result:
   /** Evaluates `body`, catching exceptions accepted by `catcher` as errors.
     * @see
     *   [[scala.util.Try Try.apply]] for a similar method returning
-    *   [[scala.util.Try]], but works on all [[NonFatal]] exceptions.
+    *   [[scala.util.Try]], but works on all [[scala.util.control.NonFatal NonFatal]] exceptions.
     * @group construct
     */
   def catchException[T, E](catcher: PartialFunction[Throwable, E])(
