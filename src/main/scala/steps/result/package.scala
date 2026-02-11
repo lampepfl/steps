@@ -335,6 +335,16 @@ object Result:
       case (Ok(_), err @ Err(es)) => err
       case (Err(e), Err(es))      => Err(e :: es)
 
+    /** Generalized version of [[zip]] to work with arbitrary tuples.
+      * Operator version of [[cons]]
+      * @see
+      *   [[zip]], [[cons]]
+      * @group combine
+      */
+    infix def `*:`[Ts <: Tuple](
+        other: Result[Ts, List[E]]
+    ): Result[T *: Ts, List[E]] = r.cons(other)
+
     /** Returns `r` if it is [[Ok]], otherwise evaluates and returns `other`.
       * @group combine
       */
