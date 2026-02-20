@@ -28,6 +28,12 @@ inThisBuild(
         "Oliver Bračevac",
         "oliver@bracevac.org",
         url("https://bracevac.org")
+      ),
+      Developer(
+        "bishabosha",
+        "Jamie Thompson",
+        "thompsonjamesrichard@gmail.com",
+        url("https://bishabosha.github.io")
       )
     )
   )
