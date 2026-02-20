@@ -5,6 +5,7 @@ inThisBuild(
   List(
     organization := "ch.epfl.lamp",
     homepage := Some(url("https://lampepfl.github.io/steps")),
+    versionScheme := Some("early-semver"),
     licenses := List(
       "Apache-2.0" -> url(
         s"https://github.com/lampepfl/steps/blob/v${version.value}/LICENSE"
