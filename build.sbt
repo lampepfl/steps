@@ -14,7 +14,7 @@ inThisBuild(
       Developer(
         "natsukagami",
         "Natsu Kagami",
-        "natsukagami@gmail.com",
+        "nki@fastmail.com",
         url("https://github.com/natsukagami")
       ),
       Developer(
