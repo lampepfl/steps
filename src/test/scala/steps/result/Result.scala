@@ -170,6 +170,25 @@ class ResultTest extends munit.FunSuite {
     assertEquals(log2(-1), Err(LogErr.NL(NoLog)))
   }
 
+  class MyException(val msg: String) extends Exception(msg):
+    override def equals(obj: Any): Boolean = obj match
+      case ex: MyException => msg == ex.msg
+      case _                  => false
+  test("capture throwing") {
+    class Logger:
+      var log: List[String] = Nil
+      def logMsg(msg: String): Unit = log = msg :: log
+
+    def exec(using log: Logger^): () ->{log} Result[Any, Exception] =
+      () => Result.catchException({ case ex: Exception => log.logMsg(s"caught ${ex}"); ex }) {
+        throw new MyException("oops")
+      }
+
+    val logger = new Logger
+    val result = exec(using logger)()
+    assertEquals(result, Err(MyException("oops")))
+  }
+
   test("tailrec") {
     given [T]: Conversion[T, T] with
       def apply(u: T) = u

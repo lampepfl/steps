@@ -419,7 +419,7 @@ object Result:
     *   [[scala.util.Try]], but works on all [[scala.util.control.NonFatal NonFatal]] exceptions.
     * @group construct
     */
-  def catchException[T, E](catcher: PartialFunction[Throwable, E])(
+  def catchException[T, E](catcher: PartialFunction[Throwable, E]^)(
       body: => T
   ): Result[T, E] =
     try Ok(body)
