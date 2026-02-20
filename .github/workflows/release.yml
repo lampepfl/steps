@@ -1,25 +1,19 @@
-run-name: Release Steps (${{ github.ref_name }})
-name: Release Steps
-
+name: Release
 on:
   push:
-    tags: v*
-
-concurrency:
-  group: release-${{ github.ref_name }}
-  cancel-in-progress: true
-
+    branches: [master, main]
+    tags: ["**"]
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: 8
+          java-version: 21
           cache: sbt
       - uses: sbt/setup-sbt@v1
       - run: sbt ci-release

@@ -5,6 +5,7 @@ inThisBuild(
   List(
     organization := "ch.epfl.lamp",
     homepage := Some(url("https://lampepfl.github.io/steps")),
+    versionScheme := Some("early-semver"),
     licenses := List(
       "Apache-2.0" -> url(
         s"https://github.com/lampepfl/steps/blob/v${version.value}/LICENSE"
@@ -14,7 +15,7 @@ inThisBuild(
       Developer(
         "natsukagami",
         "Natsu Kagami",
-        "natsukagami@gmail.com",
+        "nki@fastmail.com",
         url("https://github.com/natsukagami")
       ),
       Developer(
@@ -28,6 +29,12 @@ inThisBuild(
         "Oliver Bračevac",
         "oliver@bracevac.org",
         url("https://bracevac.org")
+      ),
+      Developer(
+        "bishabosha",
+        "Jamie Thompson",
+        "thompsonjamesrichard@gmail.com",
+        url("https://bishabosha.github.io")
       )
     )
   )
