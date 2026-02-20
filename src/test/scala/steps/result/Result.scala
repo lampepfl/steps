@@ -19,10 +19,16 @@ class ResultTest extends munit.FunSuite {
 
     assert(ok.forall(_ == 1))
     assert(!ok.forall(_ == 2))
+    assert(ok.isErrOr(_ == 1))
+    assert(!ok.isErrOr(_ == 2))
     assert(ok.exists(_ == 1))
     assert(!ok.exists(_ == 2))
-    assert(!err.forall(_ == 1))
+    assert(ok.isOkAnd(_ == 1))
+    assert(!ok.isOkAnd(_ == 2))
+    assert(err.forall(_ == 1) /* forall is always true for Err */)
+    assert(err.isErrOr(_ == 1) /* isErrOr is always true for Err */)
     assert(!err.exists(_ == 1))
+    assert(!err.isOkAnd(_ == 1))
 
     assertEquals(ok.get, 1)
     assert(Try(err.get).isFailure)
