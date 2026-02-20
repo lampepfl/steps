@@ -127,11 +127,11 @@ enum Result[+T, +E] extends IterableOnce[T]:
 
   def iterator: Iterator[T] = this match
     case Ok(value) => Iterator.single(value)
-    case Err(_)    => Iterator.empty
+    case _         => Iterator.empty
 
   override def knownSize: Int = this match
     case Ok(_)  => 1
-    case Err(_) => 0
+    case _      => 0
 
 end Result
 
@@ -177,17 +177,29 @@ object Result:
       */
     def isErr: Boolean = r.isInstanceOf[Err[?]]
 
-    /** Returns `true` if result contains an [[Ok]] value that satisfies `pred`.
+    /** Returns `true` if result is an [[Err]], or if result contains an [[Ok]] value that satisfies `pred`.
       * @group access
       */
     def forall(pred: T => Boolean): Boolean = r match
       case Ok(value) => pred(value)
-      case _         => false
+      case _         => true // if no elem then true for all elem
 
-    /** Returns `true` if result contains an [[Ok]] value that satisfies `pred`.
+    /** Returns `true` if result is exactly an [[Ok]] containing a value that satisfies `pred`.
       * @group access
       */
-    def exists(pred: T => Boolean): Boolean = forall(pred)
+    def exists(pred: T => Boolean): Boolean = r match
+      case Ok(value) => pred(value)
+      case _         => false // does not exist if no elem
+
+    /** Alias of [[exists]].
+      * @group access
+      */
+    inline def isOkAnd(pred: T => Boolean): Boolean = exists(pred)
+
+    /** Alias of [[forall]].
+      * @group access
+      */
+    inline def isErrOr(pred: T => Boolean): Boolean = forall(pred)
 
     // Conversion to Option and other Seqs
 
@@ -197,7 +209,7 @@ object Result:
       */
     def toOption: Option[T] = r match
       case Ok(value) => Some(value)
-      case Err(_)    => None
+      case _         => None
 
     /** Returns the [[Err]] error from the result.
       * @group convert
@@ -211,8 +223,8 @@ object Result:
       * @group convert
       */
     def toSeq: Seq[T] = r match
-      case Ok(value) => Seq(value)
-      case _         => Seq()
+      case Ok(value) => Seq(value) // backend currently optimises this to ::(value, Nil)
+      case _         => Seq()      // backend currently optimises this to Nil
 
     // Conversion to Either
 
@@ -258,7 +270,7 @@ object Result:
       */
     def getOrElse(default: => T): T = r match
       case Ok(value) => value
-      case Err(_)    => default
+      case _         => default
 
     // Tapping
 
@@ -266,18 +278,20 @@ object Result:
       * @group access
       */
     def tap(peek: T => Unit): r.type =
+      // TODO: align with STDLIB we'd use [U] which avoids "discarded non-unit value" warning
       r match
         case Ok(value) => peek(value)
-        case Err(_)    => ()
+        case _         => ()
       r
 
     /** Runs `peek` with the wrapped [[Err]] error, if it exists.
       * @group access
       */
     def tapErr(peek: E => Unit): r.type =
+      // TODO: align with STDLIB we'd use [U] which avoids "discarded non-unit value" warning
       r match
-        case Ok(_)      => ()
         case Err(error) => peek(error)
+        case _          => ()
       r
 
     // Combinators
@@ -288,11 +302,11 @@ object Result:
       * @group combine
       */
     def and[U, E1](other: => Result[U, E1]): Result[(T, U), E | E1] = r match
-      case err @ Err(_) => err
+      case err: Err[E] => err
       case Ok(t) =>
         other match
-          case Ok(u)      => Ok((t, u))
-          case err @ Err(_) => err
+          case Ok(u)        => Ok((t, u))
+          case err: Err[E1] => err
 
     /** Returns a tuple of `r` and `other` if both are [[Ok]], or the first
       * error otherwise. Short-circuits, so `other` is not evaluated if `r` is
@@ -330,10 +344,10 @@ object Result:
     infix def cons[Ts <: Tuple](
         other: Result[Ts, List[E]]
     ): Result[T *: Ts, List[E]] = (r, other) match
-      case (Ok(t), Ok(ts))        => Ok(t *: ts)
-      case (Err(e), Ok(_))        => Err(List(e))
-      case (Ok(_), err @ Err(es)) => err
-      case (Err(e), Err(es))      => Err(e :: es)
+      case (Ok(t), Ok(ts))       => Ok(t *: ts)
+      case (Err(e), Ok(_))       => Err(List(e))
+      case (Ok(_), err @ Err(_)) => err
+      case (Err(e), Err(es))     => Err(e :: es)
 
     /** Generalized version of [[zip]] to work with arbitrary tuples.
       * Operator version of [[cons]]
@@ -341,7 +355,7 @@ object Result:
       *   [[zip]], [[cons]]
       * @group combine
       */
-    infix def `*:`[Ts <: Tuple](
+    infix inline def `*:`[Ts <: Tuple](
         other: Result[Ts, List[E]]
     ): Result[T *: Ts, List[E]] = r.cons(other)
 
@@ -349,8 +363,8 @@ object Result:
       * @group combine
       */
     def or[E1](other: => Result[T, E1]): Result[T, E1] = r match
-      case ok: Ok[T]  => ok
-      case Err(_)     => other
+      case ok: Ok[T] => ok
+      case _         => other
 
     // transformers
 
@@ -358,8 +372,8 @@ object Result:
       * @group transform
       */
     def map[U](f: T => U): Result[U, E] = r match
-      case Ok(value)    => Ok(f(value))
-      case err @ Err(_) => err
+      case Ok(value)   => Ok(f(value))
+      case err: Err[E] => err
 
     /** Maps the [[Err]] error through `f`, otherwise keeping the [[Ok]] value.
       * @group transform
@@ -373,8 +387,8 @@ object Result:
       * @group transform
       */
     def flatMap[U](f: T => Result[U, E]): Result[U, E] = r match
-      case Ok(value)    => f(value)
-      case err @ Err(_) => err
+      case Ok(value)   => f(value)
+      case err: Err[E] => err
 
     /** Returns the output of `f` from applying it to the [[Err]] case error,
       * otherwise keeping the [[Ok]] case. Similar to [[flatMap]], but on the
@@ -400,8 +414,8 @@ object Result:
       * @group access
       */
     def getNullable: T | Null = r match
-      case Ok(value)  => value
-      case err: Err[E] => null
+      case Ok(value) => value
+      case _         => null
 
   // Conversion to `Try`
 
@@ -423,7 +437,7 @@ object Result:
       body: => T
   ): Result[T, E] =
     try Ok(body)
-    catch case ex => Err(catcher.applyOrElse(ex, _ => throw ex))
+    catch case ex => Err(catcher.applyOrElse(ex, throw _))
 
   /** Right unit for chains of [[cons]]. An [[Ok]] with an [[EmptyTuple]] value.
     * @group construct
