@@ -32,7 +32,7 @@
           ...
         }:
         let
-          jre = pkgs.jdk21;
+          jre = pkgs.jdk17;
           withJRE = jre: pkg: (pkg.override { inherit jre; });
           scala-tools = builtins.map (withJRE jre) (
             with pkgs;
