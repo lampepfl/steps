@@ -3,10 +3,8 @@ import scala.util.Try
 import language.experimental.captureChecking
 
 import steps.result.Result
-import steps.result.Result.{eval as _, *}
-// import steps.result.Result.eval.*
-
-import steps.result.Result.eval2.*
+import steps.result.Result.*
+import steps.result.Result.eval.*
 
 class ResultTest extends munit.FunSuite {
 
@@ -167,12 +165,12 @@ class ResultTest extends munit.FunSuite {
 
     def log2(input: Int): Result[Int, LogErr] =
       Result:
-        if input < 1 then eval2.raise(NoLog)
+        if input < 1 then eval.raise(NoLog)
         else if input == 1 then 0
         else log2(input / 2).ok + 1
 
     Result[Int, Exception]: label ?=>
-      Result.resultEvaluator.ok(log2(5))//.ok
+      log2(5).ok
 
     assertEquals(log2(4), Ok(2))
     assertEquals(log2(-1), Err(LogErr.NL(NoLog)))
@@ -210,7 +208,7 @@ class ResultTest extends munit.FunSuite {
           case Seq() => init
           case Seq(h, t*) =>
             val next = f(init, h).ok
-            eval2.break(tryFoldLeft(next, f)(t))
+            eval.break(tryFoldLeft(next, f)(t))
   }
 
   test("implicit upcasting") {
@@ -218,7 +216,7 @@ class ResultTest extends munit.FunSuite {
 
     Result[Int, Nothing]:
       val t: Result[Int, String] = 1
-      eval2.break(1)
+      eval.break(1)
   }
 
   test("iterable") {
@@ -251,7 +249,7 @@ class ResultTest extends munit.FunSuite {
     Result[Int, Bar]: l1 ?=>
       Result[String, Foo]: l2 ?=>
         val r: Result[String, Int] = Result.Err(1)
-        val str: String = eval2.ok(using l1)(r)
+        val str: String = eval.ok(using l1)(r)
         str
       .ok.length
   }
@@ -261,7 +259,7 @@ class ResultTest extends munit.FunSuite {
   test("break error") {
     given Conversion[String, Int] = _.length // comment for failure
     Result[Int, Int]:
-      val z = eval2.break(err)
+      val z = eval.break(err)
       1
   }
 
