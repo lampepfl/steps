@@ -10,6 +10,7 @@ import scala.util.boundary
 import scala.annotation.implicitNotFound
 import scala.Conversion.into
 import scala.util.boundary.Label
+import steps.result.Result.eval.break
 
 /** Represents either a success value of type `T` or an error of type `E`. It
   * can be used when expecting results that have errors that should be inspected
@@ -456,6 +457,51 @@ object Result:
   ): Result[T, E] = if test then Ok(ifTrue) else Err(ifFalse)
 
   // Boundary and break
+
+  trait Evaluator[Impl[+_,+_]]:
+    self =>
+    type Success[+T]
+    type Failure[+E]
+
+    inline def foldValue[T, E](impl: Impl[T, E])[U](inline onSuccess: T => U, inline onFailure: Failure[E] => U): U
+    inline def failure[E](error: E): Failure[E]
+
+    extension [T, E](
+        using @implicitNotFound(
+          "`break` cannot be used outside of the `Result.apply` scope."
+        )
+        label: boundary.Label[Failure[E]])(impl: into[Impl[T, E]]) {
+          final inline def ok: T = foldValue(impl)(t => t, boundary.break(_))
+        }
+
+  trait EvaluatorCompanion[Impl[+_,+_]]:
+
+    final inline def raise[E](using eval: Evaluator[Impl])(using
+        @implicitNotFound(
+          "`raise` cannot be used outside of the `Result.apply` scope."
+        )
+        label: boundary.Label[eval.Failure[E]]
+    )(inline err: into[E]): Nothing = boundary.break(eval.failure(err))
+
+    final inline def break[T, E](using eval: Evaluator[Impl])(using
+        @implicitNotFound(
+          "`break` cannot be used outside of the `Result.apply` scope."
+        )
+        label: boundary.Label[Impl[T, E]]
+    )(inline res: into[Impl[T, E]]): Nothing = boundary.break(res)
+
+  given resultEvaluator: Evaluator[Result] with
+    type Success[T] = Ok[T]
+    type Failure[E] = Err[E]
+
+    inline def foldValue[T, E](impl: Result[T, E])[U](inline onSuccess: T => U, inline onFailure: Err[E] => U): U =
+      impl match
+        case Ok(value)  => onSuccess(value)
+        case err: Err[E] => onFailure(err)
+
+    inline def failure[E](error: E): Err[E] = Err(error)
+
+  object eval2 extends EvaluatorCompanion[Result]
 
   // Currently under its own object `eval` due to https://github.com/scala/scala3/issues/20126
 
