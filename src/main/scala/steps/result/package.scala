@@ -670,11 +670,11 @@ object Result:
         * error if the result is an [[Err]].
         *  ```
         *  val ok: Result[Unit, Nothing] = Result.done
-        *  val err: Result[Int, String] = Err("fail!")
+        *  val err: Result[Unit, String] = Err("fail!")
         *
         *  val compute = Result.task:
         *    ok.check    // ok, continues
-        *    err.ok      // error, immediately sets compute to Err("fail")
+        *    err.check   // error, immediately sets compute to Err("fail")
         *    println(23) // not evaluated
         *  ```
         * @group eval
