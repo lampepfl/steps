@@ -444,6 +444,11 @@ object Result:
     */
   val empty: Result[EmptyTuple, Nothing] = Ok(EmptyTuple)
 
+  /** Constant unit value for use with [[Result.task]]
+    * @group construct
+    */
+  val done: Result[Unit, Nothing] = Ok(())
+
   /** Construct a `Result[T, E]` based on the condition given in `test`.
     * If the `test` succeeds (i.e. `test` is `true`), [[Ok]] with `ifTrue` is returned;
     * otherwise, return [[Err]] with `ifFalse`.
@@ -471,6 +476,18 @@ object Result:
       inline body: boundary.Label[Result[T, E]] ?=> T
   ): Result[T, E] = eval(body)
 
+  /** Evaluates `body`, if it succeeds without fail then return [[Result.done]].
+    *
+    * Within `body`:
+    *   - [[eval.ok]] can be used to unwrap [[Result]] values, with the body
+    *     short-circuiting back with the error.
+    *   - [[eval.raise]] can be used to quickly short-circuit with an error.
+    * @group eval
+    */
+  inline def task[E](
+      inline body: boundary.Label[Result[Unit, E]] ?=> Unit
+  ): Result[Unit, E] = eval.task(body)
+
   /** Operations that are valid under a [[Result.apply]] scope.
     * @group eval
     * @see
@@ -482,6 +499,14 @@ object Result:
         inline body: boundary.Label[Result[T, E]] ?=> T
     ): Result[T, E] =
       boundary(Ok(body))
+
+    /** Similar to [[Result.task]]. */
+    inline def task[E](
+        inline body: boundary.Label[Result[Unit, E]] ?=> Unit
+    ): Result[Unit, E] =
+      boundary:
+        body
+        Result.done
 
     /** Short-circuits the current `body` under [[Result$.apply Result.apply]]
       * with the given error.
@@ -632,6 +657,33 @@ object Result:
       inline def ok: T = r match
         case Ok(value)   => value
         case err: Err[E] => breakErr(err)
+
+    extension [E](using
+        @implicitNotFound(
+          "`.check` cannot be used outside of the `Result.task` scope."
+        )
+        label: boundary.Label[Err[E]]
+      )(inline r: into[Result[Unit, E]])
+
+      /** Checks that the result is not [[Err]], if so return normally, else short-circuit
+        * the current `body` under [[Result$.task Result.task]] with the given
+        * error if the result is an [[Err]].
+        *  ```
+        *  val ok: Result[Unit, Nothing] = Result.done
+        *  val err: Result[Unit, String] = Err("fail!")
+        *
+        *  val compute = Result.task:
+        *    ok.check    // ok, continues
+        *    err.check   // error, immediately sets compute to Err("fail")
+        *    println(23) // not evaluated
+        *  ```
+        * @group eval
+        * @see
+        *   [[task]] and [[raise]].
+        */
+      inline def check: Unit = r match
+        case err: Err[E] => breakErr(err)
+        case _ => ()
 
     // Separate design of ok that does this conversion hackery just to let you pass label explicitly,
     // it seems better to work with `jumpTo` instead that can co-erce the type inference without this extra conversion type.
