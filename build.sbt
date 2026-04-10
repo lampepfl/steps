@@ -40,7 +40,7 @@ inThisBuild(
   )
 )
 
-lazy val root = crossProject(JVMPlatform, JSPlatform)
+lazy val root = crossProject(JVMPlatform, JSPlatform, NativePlatform)
   .crossType(CrossType.Pure)
   .in(file("."))
   .settings(
@@ -48,7 +48,7 @@ lazy val root = crossProject(JVMPlatform, JSPlatform)
     scalaVersion := scala3Version,
     libraryDependencies ++= Seq(
       // "org.scala-lang" %% "scala2-library-cc-tasty-experimental" % scala3Version,
-      "org.scalameta" %%% "munit" % "0.7.29" % Test
+      "org.scalameta" %%% "munit" % "1.2.4" % Test
     ),
     scalacOptions ++= Seq(
       // "-Xprint:cc"
@@ -60,4 +60,9 @@ lazy val root = crossProject(JVMPlatform, JSPlatform)
   )
   .jsSettings(
     scalaJSUseMainModuleInitializer := false
+  )
+  .nativeSettings(
+    nativeConfig ~= {
+      _.withIncrementalCompilation(true)
+    }
   )

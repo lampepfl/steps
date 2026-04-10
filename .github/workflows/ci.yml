@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [JVM, JS]
+        platform: [JVM, JS, Native]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -26,5 +26,8 @@ jobs:
       if: matrix.platform == 'JS'
       with:
         node-version: 22
+    - name: Install clang (Native)
+      if: matrix.platform == 'Native'
+      run: sudo apt-get update && sudo apt-get install -y clang libgc-dev
     - name: Test
       run: sbt root${{ matrix.platform }}/test
