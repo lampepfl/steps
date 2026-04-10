@@ -40,14 +40,15 @@ inThisBuild(
   )
 )
 
-lazy val root = project
+lazy val root = crossProject(JVMPlatform, JSPlatform)
+  .crossType(CrossType.Pure)
   .in(file("."))
   .settings(
     name := "steps",
     scalaVersion := scala3Version,
     libraryDependencies ++= Seq(
       // "org.scala-lang" %% "scala2-library-cc-tasty-experimental" % scala3Version,
-      "org.scalameta" %% "munit" % "0.7.29" % Test
+      "org.scalameta" %%% "munit" % "0.7.29" % Test
     ),
     scalacOptions ++= Seq(
       // "-Xprint:cc"
@@ -56,4 +57,7 @@ lazy val root = project
     Compile / doc / scalacOptions ++= Seq(
       "-groups"
     )
+  )
+  .jsSettings(
+    scalaJSUseMainModuleInitializer := false
   )
