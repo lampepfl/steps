@@ -52,7 +52,7 @@
           # Equivalent to  inputs'.nixpkgs.legacyPackages.hello;
           # packages.default = pkgs.hello;
           devShells.default = pkgs.mkShell {
-            buildInputs = [ jre ] ++ scala-tools;
+            buildInputs = [ jre pkgs.nodejs ] ++ scala-tools;
           };
         };
       flake = {
