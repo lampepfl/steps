@@ -1,4 +1,4 @@
-val scala3Version = "3.8.1"
+val scala3Version = "3.8.4-RC1"
 resolvers += ("Artifactory" at "https://repo.scala-lang.org/artifactory/maven-nightlies/")
 
 inThisBuild(
