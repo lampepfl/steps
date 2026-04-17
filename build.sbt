@@ -40,7 +40,15 @@ inThisBuild(
   )
 )
 
-lazy val root = crossProject(JVMPlatform, JSPlatform, NativePlatform)
+lazy val root = project
+  .in(file("."))
+  .aggregate(steps.jvm, steps.js, steps.native)
+  .settings(
+    publish / skip := true,
+    compile / skip := true
+  )
+
+lazy val steps = crossProject(JVMPlatform, JSPlatform, NativePlatform)
   .crossType(CrossType.Pure)
   .in(file("."))
   .settings(
