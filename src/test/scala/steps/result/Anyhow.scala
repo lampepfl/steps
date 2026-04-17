@@ -19,7 +19,7 @@ class AnyhowClone extends munit.FunSuite {
 
   given Conversion[Any, AnyErr] =
     case anyErr: AnyErr => anyErr
-    case any =>
+    case any            =>
       new AnyErr(
         any,
         Thread.currentThread().getStackTrace().drop(5) /* 5 conversion frames */

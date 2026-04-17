@@ -25,8 +25,8 @@ class ResultTest extends munit.FunSuite {
     assert(!ok.exists(_ == 2))
     assert(ok.isOkAnd(_ == 1))
     assert(!ok.isOkAnd(_ == 2))
-    assert(err.forall(_ == 1) /* forall is always true for Err */)
-    assert(err.isErrOr(_ == 1) /* isErrOr is always true for Err */)
+    assert(err.forall(_ == 1) /* forall is always true for Err */ )
+    assert(err.isErrOr(_ == 1) /* isErrOr is always true for Err */ )
     assert(!err.exists(_ == 1))
     assert(!err.isOkAnd(_ == 1))
 
@@ -179,16 +179,19 @@ class ResultTest extends munit.FunSuite {
   class MyException(val msg: String) extends Exception(msg):
     override def equals(obj: Any): Boolean = obj match
       case ex: MyException => msg == ex.msg
-      case _                  => false
+      case _               => false
   test("capture throwing") {
     class Logger:
       var log: List[String] = Nil
       def logMsg(msg: String): Unit = log = msg :: log
 
     def exec(using log: Logger^): () ->{log} Result[Any, Exception] =
-      () => Result.catchException({ case ex: Exception => log.logMsg(s"caught ${ex}"); ex }) {
-        throw new MyException("oops")
-      }
+      () =>
+        Result.catchException({ case ex: Exception =>
+          log.logMsg(s"caught ${ex}"); ex
+        }) {
+          throw new MyException("oops")
+        }
 
     val logger = new Logger
     val result = exec(using logger)()
@@ -205,7 +208,7 @@ class ResultTest extends munit.FunSuite {
     ): Result[U, E] =
       Result:
         s match
-          case Seq() => init
+          case Seq()      => init
           case Seq(h, t*) =>
             val next = f(init, h).ok
             eval.break(tryFoldLeft(next, f)(t))

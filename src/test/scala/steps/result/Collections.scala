@@ -37,7 +37,7 @@ class CollectionTest extends munit.FunSuite {
     extension [T](t: Tree[T])
       def map[U](f: T => U): Tree[U] =
         t match
-          case Tree.Leaf(item) => Tree.Leaf(f(item))
+          case Tree.Leaf(item)            => Tree.Leaf(f(item))
           case Tree.Node(item, children*) =>
             Tree.Node(f(item), children.map(_.map(f))*)
 
