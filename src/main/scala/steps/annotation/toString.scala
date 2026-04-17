@@ -47,7 +47,9 @@ final class toString extends MacroAnnotation:
     *   The transformed class definition, with the generated `toString` method
     *   if applicable.
     */
-  override def transform(using quotes: Quotes)(
+  override def transform(using
+      quotes: Quotes
+  )(
       tree: quotes.reflect.Definition,
       _companion: Option[quotes.reflect.Definition]
   ): List[quotes.reflect.Definition] =

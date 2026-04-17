@@ -17,83 +17,83 @@ import scala.util.boundary.Label
   *
   * To create one, directly use one of the variant constructors [[Result.Ok Ok]]
   * or [[Result.Err Err]], or start a computation scope with [[Result.apply]]:
-  *  ```
-  *  extension[T] (it: IterableOnce[T])
-  *    def tryMap[U, E](f: T => Result[U, E]): Result[Seq[U], E] =
-  *      Result:
-  *        it.iterator.map(f(_).ok) // shorts-circuit on the first Err and returns
-  *  ```
+  * ```
+  * extension[T] (it: IterableOnce[T])
+  *   def tryMap[U, E](f: T => Result[U, E]): Result[Seq[U], E] =
+  *     Result:
+  *       it.iterator.map(f(_).ok) // shorts-circuit on the first Err and returns
+  * ```
   *
   * Tail-recursive functions can be implemented by using
   * [[Result.eval.break eval.break]]:
   *
-  *  ```
-  *  extension[T] (seq: Seq[T])
-  *    @scala.annotation.tailrec
-  *    def tryFoldLeft[U, E](init: U)(f: (U, T) => Result[U, E]) =
-  *      Result:
-  *        seq match
-  *          case Seq() => init
-  *          case Seq(h, t*) => eval.break(t.tryFoldLeft(f(init, h).ok)(f))
+  * ```
+  * extension[T] (seq: Seq[T])
+  *   @scala.annotation.tailrec
+  *   def tryFoldLeft[U, E](init: U)(f: (U, T) => Result[U, E]) =
+  *     Result:
+  *       seq match
+  *         case Seq() => init
+  *         case Seq(h, t*) => eval.break(t.tryFoldLeft(f(init, h).ok)(f))
   *
-  *  // however, a much simpler implementation is
-  *  extension[T] (it: IterableOnce[T])
-  *    def tryFoldLeft[U, E](init: U)(f: (U, T) => Result[U, E]) =
-  *      Result:
-  *        it.iterator.foldLeft(init)(f(_, _).ok)
-  *  ```
+  * // however, a much simpler implementation is
+  * extension[T] (it: IterableOnce[T])
+  *   def tryFoldLeft[U, E](init: U)(f: (U, T) => Result[U, E]) =
+  *     Result:
+  *       it.iterator.foldLeft(init)(f(_, _).ok)
+  * ```
   *
   * Conversions from [[Option]] and [[Either]] are available in
   * [[ScalaConverters]] (or implicitly through importing [[Conversions]]).
   *
-  *  ```
-  *  // from Option
-  *  val opt: Option[Int] = f()
-  *  val res1 = opt.okOr(Error.NotFound) // with explicit error
-  *  val res2 = opt.asResult // Result[Int, NoSuchElementException]
-  *  // to Option
-  *  val opt2 = res1.ok // returns Option[Int]
+  * ```
+  * // from Option
+  * val opt: Option[Int] = f()
+  * val res1 = opt.okOr(Error.NotFound) // with explicit error
+  * val res2 = opt.asResult // Result[Int, NoSuchElementException]
+  * // to Option
+  * val opt2 = res1.ok // returns Option[Int]
   *
-  *  // from Either
-  *  val either: Either[E, T] = f()
-  *  val res = either.asResult // Result[T, E]
-  *  // to Either
-  *  val either2 = res.toEither
+  * // from Either
+  * val either: Either[E, T] = f()
+  * val res = either.asResult // Result[T, E]
+  * // to Either
+  * val either2 = res.toEither
   *
-  *  // from Try
-  *  val t: Try[T] = Try { /* ... */ }
-  *  val res = t.asResult // Result[T, Throwable]
-  *  // to Try
-  *  val t2 = res.toTry // Try[T], if error type is throwable
-  *  val t2 = Try { res.get } // Try[T], throws ResultIsErrException
-  *  ```
+  * // from Try
+  * val t: Try[T] = Try { /* ... */ }
+  * val res = t.asResult // Result[T, Throwable]
+  * // to Try
+  * val t2 = res.toTry // Try[T], if error type is throwable
+  * val t2 = Try { res.get } // Try[T], throws ResultIsErrException
+  * ```
   *
   * Casual usage in a library where precise error reporting is preferred would
   * consist of creating the Error type as an `enum` or an union type, aliasing
   * the `Result` type with the correct error type, and using it as part of the
   * function signature.
   *
-  *  ```
-  *  enum LibError:
-  *    case A
-  *    case B(inner: SomeError)
-  *  // or ...
-  *  type LibError = ErrorA.type | SomeError
+  * ```
+  * enum LibError:
+  *   case A
+  *   case B(inner: SomeError)
+  * // or ...
+  * type LibError = ErrorA.type | SomeError
   *
-  *  type LibResult[+T] = Result[T, LibError]
+  * type LibResult[+T] = Result[T, LibError]
   *
-  *  object LibResult:
-  *    import scala.util.boundary
-  *    export Result.{apply as _, *}
+  * object LibResult:
+  *   import scala.util.boundary
+  *   export Result.{apply as _, *}
   *
-  *    // override `apply` manually, to have it fix the Error type parameter.
-  *    inline def apply[T](inline body: boundary.Label[LibResult[T]] => T) = Result.apply(body)
+  *   // override `apply` manually, to have it fix the Error type parameter.
+  *   inline def apply[T](inline body: boundary.Label[LibResult[T]] => T) = Result.apply(body)
   *
-  *  // in the library:
-  *  def ApiEndpoint(p: Int): LibResult[String] =
-  *    LibResult:
-  *      // ...
-  *  ```
+  * // in the library:
+  * def ApiEndpoint(p: Int): LibResult[String] =
+  *   LibResult:
+  *     // ...
+  * ```
   *
   * In end applications, prefer either:
   *   - directly `match`ing over the [[Result]], where precise errors need to be
@@ -130,8 +130,8 @@ enum Result[+T, +E] extends IterableOnce[T]:
     case _         => Iterator.empty
 
   override def knownSize: Int = this match
-    case Ok(_)  => 1
-    case _      => 0
+    case Ok(_) => 1
+    case _     => 0
 
 end Result
 
@@ -149,8 +149,11 @@ end Result
   * @groupprio access 2
   */
 object Result:
-  /** Convert the error channel of a [[Result]]. Used for example with [[Result.eval.break eval.break]] */
-  given convertErrChannel: [T, E, E1] => Conversion[E, E1] => Conversion[Result[T, E], Result[T, E1]] =
+  /** Convert the error channel of a [[Result]]. Used for example with
+    * [[Result.eval.break eval.break]]
+    */
+  given convertErrChannel: [T, E, E1] => Conversion[E, E1]
+    => Conversion[Result[T, E], Result[T, E1]] =
     _.mapErr(_.convert)
 
   /** An exception obtained by calling [[Result.get get]] on a [[Result.Err]].
@@ -177,14 +180,16 @@ object Result:
       */
     def isErr: Boolean = r.isInstanceOf[Err[?]]
 
-    /** Returns `true` if result is an [[Err]], or if result contains an [[Ok]] value that satisfies `pred`.
+    /** Returns `true` if result is an [[Err]], or if result contains an [[Ok]]
+      * value that satisfies `pred`.
       * @group access
       */
     def forall(pred: T => Boolean): Boolean = r match
       case Ok(value) => pred(value)
       case _         => true // if no elem then true for all elem
 
-    /** Returns `true` if result is exactly an [[Ok]] containing a value that satisfies `pred`.
+    /** Returns `true` if result is exactly an [[Ok]] containing a value that
+      * satisfies `pred`.
       * @group access
       */
     def exists(pred: T => Boolean): Boolean = r match
@@ -223,13 +228,15 @@ object Result:
       * @group convert
       */
     def toSeq: Seq[T] = r match
-      case Ok(value) => Seq(value) // backend currently optimises this to ::(value, Nil)
-      case _         => Seq()      // backend currently optimises this to Nil
+      case Ok(value) =>
+        Seq(value) // backend currently optimises this to ::(value, Nil)
+      case _ => Seq() // backend currently optimises this to Nil
 
     // Conversion to Either
 
-    /** Converts the result into an [[scala.Either Either]]. Where the [[Ok]] value is mapped to [[scala.Right]],
-      * and the [[Err]] error to [[scala.Left]].
+    /** Converts the result into an [[scala.Either Either]]. Where the [[Ok]]
+      * value is mapped to [[scala.Right]], and the [[Err]] error to
+      * [[scala.Left]].
       * @group convert
       */
     def toEither: Either[E, T] = r match
@@ -245,7 +252,7 @@ object Result:
       * @group access
       */
     def get: T = r match
-      case Ok(value) => value
+      case Ok(value)  => value
       case Err(error) =>
         throw ResultIsErrException(error)
 
@@ -257,7 +264,7 @@ object Result:
       */
     def getErr: E = r match
       case Err(error) => error
-      case Ok(value) =>
+      case Ok(value)  =>
         throw ju.NoSuchElementException(
           s"Expected Result.Err, got value: $value"
         )
@@ -303,7 +310,7 @@ object Result:
       */
     def and[U, E1](other: => Result[U, E1]): Result[(T, U), E | E1] = r match
       case err: Err[E] => err
-      case Ok(t) =>
+      case Ok(t)       =>
         other match
           case Ok(u)        => Ok((t, u))
           case err: Err[E1] => err
@@ -321,7 +328,7 @@ object Result:
     ): Result[(T, U), Either[E, E1]] =
       r match
         case Err(error) => Err(Left(error))
-        case Ok(t) =>
+        case Ok(t)      =>
           other match
             case Ok(u)      => Ok((t, u))
             case Err(error) => Err(Right(error))
@@ -349,8 +356,8 @@ object Result:
       case (Ok(_), err @ Err(_)) => err
       case (Err(e), Err(es))     => Err(e :: es)
 
-    /** Generalized version of [[zip]] to work with arbitrary tuples.
-      * Operator version of [[cons]]
+    /** Generalized version of [[zip]] to work with arbitrary tuples. Operator
+      * version of [[cons]]
       * @see
       *   [[zip]], [[cons]]
       * @group combine
@@ -430,7 +437,8 @@ object Result:
   /** Evaluates `body`, catching exceptions accepted by `catcher` as errors.
     * @see
     *   [[scala.util.Try Try.apply]] for a similar method returning
-    *   [[scala.util.Try]], but works on all [[scala.util.control.NonFatal NonFatal]] exceptions.
+    *   [[scala.util.Try]], but works on all
+    *   [[scala.util.control.NonFatal NonFatal]] exceptions.
     * @group construct
     */
   def catchException[T, E](catcher: PartialFunction[Throwable, E]^)(
@@ -449,15 +457,15 @@ object Result:
     */
   val done: Result[Unit, Nothing] = Ok(())
 
-  /** Construct a `Result[T, E]` based on the condition given in `test`.
-    * If the `test` succeeds (i.e. `test` is `true`), [[Ok]] with `ifTrue` is returned;
+  /** Construct a `Result[T, E]` based on the condition given in `test`. If the
+    * `test` succeeds (i.e. `test` is `true`), [[Ok]] with `ifTrue` is returned;
     * otherwise, return [[Err]] with `ifFalse`.
     * @group construct
     */
   inline def cond[T, E](
-    test: Boolean,
-    ifTrue: => T,
-    ifFalse: => E,
+      test: Boolean,
+      ifTrue: => T,
+      ifFalse: => E
   ): Result[T, E] = if test then Ok(ifTrue) else Err(ifFalse)
 
   // Boundary and break
@@ -637,19 +645,19 @@ object Result:
           "`.ok` cannot be used outside of the `Result.apply` scope."
         )
         label: boundary.Label[Err[E]]
-      )(inline r: into[Result[T, E]])
+    )(inline r: into[Result[T, E]])
       /** Unwraps the result, returning the value under [[Ok]]. Short-circuits
         * the current `body` under [[Result$.apply Result.apply]] with the given
         * error if the result is an [[Err]].
-        *  ```
-        *  val ok: Result[Int, Nothing] = Ok(1)
-        *  val err: Result[Int, String] = Err("fail!")
+        * ```
+        * val ok: Result[Int, Nothing] = Ok(1)
+        * val err: Result[Int, String] = Err("fail!")
         *
-        *  val compute = Result:
-        *    ok.ok      // ok, unwraps and gives 1
-        *      + err.ok // error, immediately sets compute to Err("fail")
-        *      + 23     // not evaluated
-        *  ```
+        * val compute = Result:
+        *   ok.ok      // ok, unwraps and gives 1
+        *     + err.ok // error, immediately sets compute to Err("fail")
+        *     + 23     // not evaluated
+        * ```
         * @group eval
         * @see
         *   [[apply]] and [[raise]].
@@ -663,27 +671,27 @@ object Result:
           "`.check` cannot be used outside of the `Result.task` scope."
         )
         label: boundary.Label[Err[E]]
-      )(inline r: into[Result[Unit, E]])
+    )(inline r: into[Result[Unit, E]])
 
-      /** Checks that the result is not [[Err]], if so return normally, else short-circuit
-        * the current `body` under [[Result$.task Result.task]] with the given
-        * error if the result is an [[Err]].
-        *  ```
-        *  val ok: Result[Unit, Nothing] = Result.done
-        *  val err: Result[Unit, String] = Err("fail!")
+      /** Checks that the result is not [[Err]], if so return normally, else
+        * short-circuit the current `body` under [[Result$.task Result.task]]
+        * with the given error if the result is an [[Err]].
+        * ```
+        * val ok: Result[Unit, Nothing] = Result.done
+        * val err: Result[Unit, String] = Err("fail!")
         *
-        *  val compute = Result.task:
-        *    ok.check    // ok, continues
-        *    err.check   // error, immediately sets compute to Err("fail")
-        *    println(23) // not evaluated
-        *  ```
+        * val compute = Result.task:
+        *   ok.check    // ok, continues
+        *   err.check   // error, immediately sets compute to Err("fail")
+        *   println(23) // not evaluated
+        * ```
         * @group eval
         * @see
         *   [[task]] and [[raise]].
         */
       inline def check: Unit = r match
         case err: Err[E] => breakErr(err)
-        case _ => ()
+        case _           => ()
 
     // Separate design of ok that does this conversion hackery just to let you pass label explicitly,
     // it seems better to work with `jumpTo` instead that can co-erce the type inference without this extra conversion type.
