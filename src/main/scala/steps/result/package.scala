@@ -87,7 +87,7 @@ import scala.util.boundary.Label
   *   export Result.{apply as _, *}
   *
   *   // override `apply` manually, to have it fix the Error type parameter.
-  *   inline def apply[T](inline body: boundary.Label[LibResult[T]] => T) = Result.apply(body)
+  *   inline def apply[T](inline body: boundary.Label[LibResult[T]] ?=> T) = Result.apply(body)
   *
   * // in the library:
   * def ApiEndpoint(p: Int): LibResult[String] =
