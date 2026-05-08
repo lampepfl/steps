@@ -26,10 +26,7 @@ class CollectionTest extends munit.FunSuite {
         .map(getEven)
         .flatMap(_.toOption)
 
-    // Workaround for https://github.com/scala/scala3/issues/25849
-    // Providing clue explicitly avoids generating a default parameter
-    // accessor with a capture-checked type argument that crashes the pickler.
-    assertEquals(evens, Seq(2, 4).toIndexedSeq, "evens mismatch")
+    assertEquals(evens, Seq(2, 4).toIndexedSeq)
   }
 
   test("tryMap on tree") {

@@ -1,8 +1,10 @@
-val scala3Version = "3.8.4-RC1"
-resolvers += ("Artifactory" at "https://repo.scala-lang.org/artifactory/maven-nightlies/")
+// val scala3Version = "3.8.4-RC2"
+// val scala3Version = "3.8.5-RC1-bin-20260418-8d71af7-NIGHTLY"
+val scala3Version = "3.9.0-RC1-bin-20260508-eb2e041-NIGHTLY"
 
 inThisBuild(
   List(
+    resolvers += ("Artifactory" at "https://repo.scala-lang.org/artifactory/maven-nightlies/"),
     organization := "ch.epfl.lamp",
     homepage := Some(url("https://lampepfl.github.io/steps")),
     versionScheme := Some("early-semver"),
