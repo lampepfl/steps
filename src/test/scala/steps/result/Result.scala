@@ -263,6 +263,33 @@ class ResultTest extends munit.FunSuite {
       1
   }
 
+  test("break err") {
+    import scala.util.boundary.Label
+
+    trait DefaultErr[E]:
+      def default: E
+
+    given DefaultErr[String] with
+      def default: String = "err"
+
+    inline def evalInner[E](inner: Result[String, E])(using Label[Err[E]]): String =
+      val subpart = inner match
+        case Ok(value) => value
+        case err: Err[E] => eval.breakErr(err) // short-circuit with the error
+      s"Outer(${subpart})"
+
+    def evalOuterA[E: {DefaultErr as err}]: Result[String, E] =
+      Result:
+        evalInner(Err(err.default))
+
+    def evalOuterB[E]: Result[String, E] =
+      Result:
+        evalInner(Ok("inner"))
+
+    assertEquals(evalOuterA, Err("err"))
+    assertEquals(evalOuterB, Ok("Outer(inner)"))
+  }
+
   // test("outside of scope") {
   //   val x = ok.ok
   // }

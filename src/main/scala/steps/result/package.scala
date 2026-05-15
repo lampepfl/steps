@@ -577,7 +577,26 @@ object Result:
       //   case l: boundary.Label[Result[Nothing, Nothing]] => ???
       //   case _ => ???
 
-    private inline def breakErr[E](using
+    /** A shorthand to call [[scala.util.boundary.break boundary.break]] with a
+      * [[Err]] label. This is useful in case an early return is needed,
+      * and you only have in scope a `Label[Err[E]]` instead of a `Label[Result[T, E]]`.
+      *
+      * For example, `evalInner` is a subpart of an algorithm that consumes a `Result[T, E]`
+      * from an inner computation, and needs to short-circuit with the error if it is an `Err`:
+      * {{{
+      * inline def evalInner[A, T, E](inner: Result[T, E])(using Label[Err[E]]): A =
+      *    // ... some other code
+      *    val subpart: T = inner match
+      *      case Ok(value) => value
+      *      case err: Err[E] => eval.breakErr(err) // short-circuit with the error
+      *    // ... use subpart to compute the final result
+      * }}}
+      *
+      * @return
+      *   Always returns [[Nothing]], but the return type is set so that Scala
+      *   does not infer `E` contravariantly.
+      */
+    inline def breakErr[E](using
         @implicitNotFound(
           "`break` cannot be used outside of a corresponding `Result.apply` scope."
         )
