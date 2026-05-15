@@ -460,6 +460,61 @@ object Result:
     ifFalse: => E,
   ): Result[T, E] = if test then Ok(ifTrue) else Err(ifFalse)
 
+  inline def results[T <: Tuple: {IsResults as res}](ts: T): Result[res.OkSide, List[res.ErrSide]] =
+    type OkSide = res.OkSide
+    type Err = res.ErrSide
+    var results: Array[AnyRef] | Null = null
+    var errs: scala.collection.mutable.ListBuffer[Err] | Null = null
+    var isErr = false
+    var i = 0
+    val it = ts.productIterator.asInstanceOf[Iterator[Result[?, Err]]]
+    while it.hasNext do
+      val r = it.next()
+      r match
+        case Ok(value) =>
+          if !isErr then
+            if results == null then results = new Array[AnyRef](ts.size)
+            results(i) = value.asInstanceOf[AnyRef]
+        case Err(error) =>
+          isErr = true
+          if errs == null then errs = scala.collection.mutable.ListBuffer[Err]()
+          errs += error.asInstanceOf[Err]
+      i += 1
+    end while
+    if isErr then
+      if i == 0 then
+        Err(Nil)
+      else
+        Err(errs.result())
+    else
+      if i == 0 then Ok(EmptyTuple.asInstanceOf[OkSide])
+      else Ok(Tuple.fromIArray(IArray.unsafeFromArray(results)).asInstanceOf[OkSide])
+
+  type OkSides[T <: Tuple] = Tuple.InverseMap[T, [T] =>> Result[T, ?]]
+  type ErrSide[T <: Tuple] = Tuple.Union[T] match
+    case Result[?, e] => e
+
+
+  // TODO: report error with this formulation and capture checking
+  // type IsResults[T <: Tuple] = IsMappedByResult[T] =:= true
+  // type IsMappedByResult[T <: Tuple] = T match
+  //   case EmptyTuple => true
+  //   case Result[?, ?]^{} *: t => IsMappedByResult[t]
+  //   case _ => false
+
+  // TODO: report error with this formulation and capture checking
+  sealed trait IsResults[T <: Tuple]:
+    type OkSide <: Tuple
+    type ErrSide
+  given emptyIsResults: IsResults[EmptyTuple] {
+    type OkSide = EmptyTuple
+    type ErrSide = Nothing
+  }
+  given consIsResults: [T, E, Ts <: Tuple] => (sub: IsResults[Ts]) => IsResults[Result[T, E] *: Ts] {
+    type OkSide = T *: sub.OkSide
+    type ErrSide = E | sub.ErrSide
+  }
+
   // Boundary and break
 
   // Currently under its own object `eval` due to https://github.com/scala/scala3/issues/20126

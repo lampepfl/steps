@@ -112,6 +112,12 @@ class ResultTest extends munit.FunSuite {
     assertEquals(ok cons Result.empty, Ok(1 *: EmptyTuple))
     assertEquals(err cons Result.empty, Err(List("bad")))
 
+    assertEquals(Result.results(ok *: EmptyTuple), Ok(1 *: EmptyTuple))
+    assertEquals(Result.results(err *: EmptyTuple), Err(List("bad")))
+    assertEquals(Result.results((ok, ok)), Ok((1, 1)))
+    assertEquals(Result.results((ok, err)), Err(List("bad")))
+    assertEquals(Result.results((err, err)), Err(List("bad", "bad")))
+
     tapped = 0
     assertEquals(ok.or(err), ok)
     assertEquals(err.or(ok), ok)
