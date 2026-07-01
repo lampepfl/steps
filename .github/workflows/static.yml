@@ -39,8 +39,8 @@ jobs:
       - uses: sbt/setup-sbt@v1
       - name: Build docs
         run: |
-          sbt stepsJVM/doc
-          cp -rv .jvm/target/scala-*/api api
+          sbt steps/doc
+          cp -rv target/out/jvm/scala-*/steps/api api
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

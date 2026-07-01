@@ -16,12 +16,22 @@ jobs:
         java-version: 17
     - uses: sbt/setup-sbt@v1
     - name: Check formatting
-      run: sbt scalafmtCheckAll scalafmtSbtCheck
+      # sbt 2.x treats space-separated arguments as a single command, so the
+      # two checks must be combined into one `;`-separated command.
+      run: sbt "scalafmtCheckAll; scalafmtSbtCheck"
   test:
     strategy:
       fail-fast: false
       matrix:
-        platform: [JVM, JS, Native]
+        # The JVM/Scala 3 variant of the project matrix has no suffix, so its
+        # project id is `steps` rather than `stepsJVM`.
+        include:
+          - platform: JVM
+            project: steps
+          - platform: JS
+            project: stepsJS
+          - platform: Native
+            project: stepsNative
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -42,4 +52,5 @@ jobs:
       if: matrix.platform == 'Native'
       run: sudo apt-get update && sudo apt-get install -y clang libgc-dev
     - name: Test
-      run: sbt steps${{ matrix.platform }}/test
+      # sbt 2.x `test` is incremental/cached; `testFull` runs the whole suite.
+      run: sbt ${{ matrix.project }}/testFull
