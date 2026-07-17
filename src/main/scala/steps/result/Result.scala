@@ -267,7 +267,7 @@ enum Result[+T, +E] extends IterableOnce[T]:
   /** Runs `f` with the wrapped [[Ok]] value, if it exists.
     * @group access
     */
-  def tap[U](f: T => U): this.type =
+  inline def tap[U](inline f: T => U): this.type =
     this match
       case Ok(value) => f(value)
       case _         => ()
@@ -276,7 +276,7 @@ enum Result[+T, +E] extends IterableOnce[T]:
   /** Runs `f` with the wrapped [[Err]] error, if it exists.
     * @group access
     */
-  def tapErr[U](f: E => U): this.type =
+  inline def tapErr[U](inline f: E => U): this.type =
     this match
       case Err(error) => f(error)
       case _          => ()
