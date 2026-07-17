@@ -39,7 +39,7 @@ object ScalaConverters:
   * {{{
   * // for conversions from `Either` and `scala.util.Try`
   * import Conversions.FromScala.given
-  * // for conversions from `Option` into `Result[T, ResultIsErrException]`
+  * // for conversions from `Option` into `Result[T, NoSuchElementException]`
   * import Conversions.FromOption.given
   * // for implicit lifting from any type `T` into `Result[T, Nothing]`
   * import Conversions.Lift.given

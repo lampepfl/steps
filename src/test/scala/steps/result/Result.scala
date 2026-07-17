@@ -113,12 +113,12 @@ class ResultTest extends munit.FunSuite {
     assertEquals(err cons Result.empty, Err(List("bad")))
 
     tapped = 0
-    assertEquals(ok.or(err), ok)
-    assertEquals(err.or(ok), ok)
-    assertEquals(err.or(err), err)
-    assertEquals(ok.or { tapped += 1; err }, ok)
+    assertEquals(ok.orElse(err), ok)
+    assertEquals(err.orElse(ok), ok)
+    assertEquals(err.orElse(err), err)
+    assertEquals(ok.orElse { tapped += 1; err }, ok)
     assertEquals(tapped, 0)
-    assertEquals(err.or { tapped += 1; Err("other") }, Err("other"))
+    assertEquals(err.orElse { tapped += 1; Err("other") }, Err("other"))
     assertEquals(tapped, 1)
   }
 
@@ -174,6 +174,20 @@ class ResultTest extends munit.FunSuite {
 
     assertEquals(log2(4), Ok(2))
     assertEquals(log2(-1), Err(LogErr.NL(NoLog)))
+  }
+
+  test("catching") {
+    assertEquals(Result.catching(1), Ok(1))
+
+    val exc = new Exception("bleh")
+    assertEquals(Result.catching(throw exc), Err(exc))
+
+    // fatal exceptions are not caught
+    val fatal = new InterruptedException("fatal")
+    try
+      Result.catching(throw fatal)
+      fail("expected InterruptedException to propagate")
+    catch case ex: InterruptedException => assert(ex eq fatal)
   }
 
   class MyException(val msg: String) extends Exception(msg):
