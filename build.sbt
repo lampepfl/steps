@@ -1,4 +1,4 @@
-val scala3Version = "3.8.1"
+val scala3Version = "3.8.4"
 resolvers += ("Artifactory" at "https://repo.scala-lang.org/artifactory/maven-nightlies/")
 
 inThisBuild(
@@ -59,7 +59,8 @@ lazy val steps = (projectMatrix in file("."))
     ),
     scalacOptions ++= Seq(
       // "-Xprint:cc"
-      "-preview"
+      "-preview",
+      "-Yexplicit-nulls"
     ),
     Compile / doc / scalacOptions ++= Seq(
       "-groups"

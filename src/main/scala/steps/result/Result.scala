@@ -258,9 +258,9 @@ enum Result[+T, +E] extends IterableOnce[T]:
     * [[Err]].
     * @group access
     */
-  def orNull[T1 >: T](using ev: Null <:< T1): T1 = this match
+  def orNull[T1 >: T | Null]: T1 = this match
     case Ok(value) => value
-    case _         => ev(null)
+    case _         => null
 
   // Tapping
 
@@ -468,8 +468,8 @@ object Result:
     */
   inline def cond[T, E](
       test: Boolean,
-      ifTrue: => T,
-      ifFalse: => E
+      inline ifTrue: T,
+      inline ifFalse: E
   ): Result[T, E] = if test then Ok(ifTrue) else Err(ifFalse)
 
   // Boundary and break

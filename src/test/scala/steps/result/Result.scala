@@ -51,6 +51,9 @@ class ResultTest extends munit.FunSuite {
     assertEquals(tapped, 2)
     assertEquals(err.getOrElse { tapper(1); 2 }, 2)
     assertEquals(tapped, 3)
+
+    assertEquals(ok.orNull, 1)
+    assertEquals(err.orNull, null)
   }
 
   test("transformers") {
@@ -98,7 +101,7 @@ class ResultTest extends munit.FunSuite {
     tapped = 0
     assertEquals(ok.andTrace(err), Err(Right("bad")))
     assertEquals(err.andTrace(ok), Err(Left("bad")))
-    assertEquals(ok.and(ok), Ok((1, 1)))
+    assertEquals(ok.andTrace(ok), Ok((1, 1)))
     assertEquals(err.andTrace { tapped += 1; Err("other") }, Err(Left("bad")))
     assertEquals(tapped, 0)
     assertEquals(ok.andTrace { tapped += 1; Err("other") }, Err(Right("other")))
@@ -111,6 +114,14 @@ class ResultTest extends munit.FunSuite {
 
     assertEquals(ok cons Result.empty, Ok(1 *: EmptyTuple))
     assertEquals(err cons Result.empty, Err(List("bad")))
+
+    val errs: Result[EmptyTuple, List[String]] = Err(List("other"))
+    assertEquals(ok cons errs, Err(List("other")))
+    assertEquals(err cons errs, Err(List("bad", "other")))
+
+    assertEquals(ok *: ok *: Result.empty, Ok((1, 1)))
+    assertEquals(err *: ok *: Result.empty, Err(List("bad")))
+    assertEquals(err *: err *: Result.empty, Err(List("bad", "bad")))
 
     tapped = 0
     assertEquals(ok.orElse(err), ok)
@@ -174,6 +185,16 @@ class ResultTest extends munit.FunSuite {
 
     assertEquals(log2(4), Ok(2))
     assertEquals(log2(-1), Err(LogErr.NL(NoLog)))
+  }
+
+  test("cond") {
+    assertEquals(Result.cond(true, 1, "bad"), Ok(1))
+    assertEquals(Result.cond(false, 1, "bad"), Err("bad"))
+
+    var tapped = 0
+    assertEquals(Result.cond(true, 1, { tapped += 1; "bad" }), Ok(1))
+    assertEquals(Result.cond(false, { tapped += 1; 1 }, "bad"), Err("bad"))
+    assertEquals(tapped, 0 /* the unused branch is never evaluated */ )
   }
 
   test("catching") {
