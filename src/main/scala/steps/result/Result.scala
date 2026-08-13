@@ -50,9 +50,8 @@ import scala.util.boundary.Label
   * // from Option
   * val opt: Option[Int] = f()
   * val res1 = opt.okOr(Error.NotFound) // with explicit error
-  * val res2 = opt.asResult // Result[Int, NoSuchElementException]
   * // to Option
-  * val opt2 = res1.ok // returns Option[Int]
+  * val opt2 = res1.toOption // returns Option[Int]
   *
   * // from Either
   * val either: Either[E, T] = f()
@@ -65,7 +64,7 @@ import scala.util.boundary.Label
   * val res = t.asResult // Result[T, Throwable]
   * // to Try
   * val t2 = res.toTry // Try[T], if error type is throwable
-  * val t2 = Try { res.get } // Try[T], throws ResultIsErrException
+  * val t2 = Try { res.get } // Try[T], throws NoSuchElementException
   * ```
   *
   * Casual usage in a library where precise error reporting is preferred would
@@ -100,8 +99,7 @@ import scala.util.boundary.Label
   *     inspected.
   *   - in other cases, where tracing is wanted and error details are less
   *     important, prefer unwrapping the [[Result]] directly and catch the
-  *     [[Result.ResultIsErrException]] at the top level to inspect the error
-  *     details.
+  *     [[java.util.NoSuchElementException]] at the top level.
   *
   * @groupname construct Constructing [[Result Results]] through other means
   * @groupprio construct 1
@@ -133,20 +131,274 @@ enum Result[+T, +E] extends IterableOnce[T]:
     case Ok(_) => 1
     case _     => 0
 
+  // Basic case differentiation
+
+  /** Returns whether the result is [[Result.Ok Ok]].
+    * @group access
+    */
+  def isOk: Boolean = this.isInstanceOf[Ok[?]]
+
+  /** Returns whether the result is [[Result.Err Err]].
+    * @group access
+    */
+  def isErr: Boolean = this.isInstanceOf[Err[?]]
+
+  /** Returns `true` if the result is an [[Err]], or if the result contains an
+    * [[Ok]] value that satisfies `p`.
+    * @group access
+    */
+  def forall(p: T => Boolean): Boolean = this match
+    case Ok(value) => p(value)
+    case _         => true // if no elem then true for all elem
+
+  /** Returns `true` if the result is exactly an [[Ok]] containing a value that
+    * satisfies `p`.
+    * @group access
+    */
+  def exists(p: T => Boolean): Boolean = this match
+    case Ok(value) => p(value)
+    case _         => false // does not exist if no elem
+
+  /** Alias of [[exists]].
+    * @group access
+    */
+  inline def isOkAnd(p: T => Boolean): Boolean = exists(p)
+
+  /** Alias of [[forall]].
+    * @group access
+    */
+  inline def isErrOr(p: T => Boolean): Boolean = forall(p)
+
+  // Conversion to Option and other Seqs
+
+  /** Converts the result into an [[Option]], with [[Some]] case if the value is
+    * [[Ok]].
+    * @group convert
+    */
+  def toOption: Option[T] = this match
+    case Ok(value) => Some(value)
+    case _         => None
+
+  /** Returns the [[Err]] error from the result.
+    * @group convert
+    */
+  def errOption: Option[E] = this match
+    case Ok(_)      => None
+    case Err(error) => Some(error)
+
+  /** Returns the [[Seq]] that is one element (the [[Ok]] value) or otherwise
+    * empty.
+    * @group convert
+    */
+  def toSeq: Seq[T] = this match
+    case Ok(value) =>
+      Seq(value) // backend currently optimises this to ::(value, Nil)
+    case _ => Seq() // backend currently optimises this to Nil
+
+  // Conversion to Either
+
+  /** Converts the result into an [[scala.Either Either]]. Where the [[Ok]]
+    * value is mapped to [[scala.Right]], and the [[Err]] error to
+    * [[scala.Left]].
+    * @group convert
+    */
+  def toEither: Either[E, T] = this match
+    case Ok(value)  => Right(value)
+    case Err(error) => Left(error)
+
+  // Conversion to `Try`
+
+  /** Converts the result to [[scala.util.Try]], provided the error type is a
+    * subtype of [[Throwable]].
+    * @group convert
+    */
+  def toTry(using ev: E <:< Throwable): scala.util.Try[T] = this match
+    case Ok(value)  => scala.util.Success(value)
+    case Err(error) => scala.util.Failure(ev(error))
+
+  // Extracting values forcefully
+
+  /** Returns the [[Ok]] value from the result, and throws an exception if it is
+    * an error.
+    * @throws java.util.NoSuchElementException
+    *   if the result is an [[Err]].
+    * @group access
+    */
+  def get: T = this match
+    case Ok(value)  => value
+    case Err(error) =>
+      throw ju.NoSuchElementException(
+        s"Expected Result.Ok, got error: $error"
+      )
+
+  /** Returns the error from the result, and throws an exception if it is an
+    * [[Ok]] value.
+    * @throws java.util.NoSuchElementException
+    *   if the result is an [[Ok]].
+    * @group access
+    */
+  def getErr: E = this match
+    case Err(error) => error
+    case Ok(value)  =>
+      throw ju.NoSuchElementException(
+        s"Expected Result.Err, got value: $value"
+      )
+
+  // Extracting with defaults
+
+  /** Returns the [[Ok]] value from the result, or `default` if the result is an
+    * [[Err]].
+    * @group access
+    */
+  def getOrElse[T1 >: T](default: => T1): T1 = this match
+    case Ok(value) => value
+    case _         => default
+
+  /** Returns the [[Ok]] value from the result, or `null` if the result is an
+    * [[Err]].
+    * @group access
+    */
+  def orNull[T1 >: T | Null]: T1 = this match
+    case Ok(value) => value
+    case _         => null
+
+  // Tapping
+
+  /** Runs `f` with the wrapped [[Ok]] value, if it exists.
+    * @group access
+    */
+  inline def tap[U](inline f: T => U): this.type =
+    this match
+      case Ok(value) => f(value)
+      case _         => ()
+    this
+
+  /** Runs `f` with the wrapped [[Err]] error, if it exists.
+    * @group access
+    */
+  inline def tapErr[U](inline f: E => U): this.type =
+    this match
+      case Err(error) => f(error)
+      case _          => ()
+    this
+
+  // Combinators
+
+  /** Returns a tuple of this result and `other` if both are [[Ok]], or the
+    * first error otherwise. Short-circuits, so `other` is not evaluated if this
+    * result is an [[Err]].
+    * @group combine
+    */
+  def and[U, E1](other: => Result[U, E1]): Result[(T, U), E | E1] = this match
+    case err: Err[E] => err
+    case Ok(t)       =>
+      other match
+        case Ok(u)        => Ok((t, u))
+        case err: Err[E1] => err
+
+  /** Returns a tuple of this result and `other` if both are [[Ok]], or the
+    * first error otherwise. Short-circuits, so `other` is not evaluated if this
+    * result is an [[Err]].
+    *
+    * Unlike [[and]], returns the error disambiguated by [[Either]]: [[Left]] if
+    * this result is an [[Err]], and [[Right]] if it is [[Ok]] but `other` is
+    * not.
+    * @group combine
+    */
+  def andTrace[U, E1](
+      other: => Result[U, E1]
+  ): Result[(T, U), Either[E, E1]] =
+    this match
+      case Err(error) => Err(Left(error))
+      case Ok(t)      =>
+        other match
+          case Ok(u)      => Ok((t, u))
+          case Err(error) => Err(Right(error))
+
+  /** Returns a tuple of this result and `other` if both are [[Ok]], otherwise
+    * returns all errors as a [[List]]. Does '''not''' short-circuit.
+    * @group combine
+    */
+  def zip[U, E1 >: E](other: Result[U, E1]): Result[(T, U), List[E1]] =
+    (this, other) match
+      case (Ok(t), Ok(u))     => Ok((t, u))
+      case (Ok(_), Err(e))    => Err(List(e))
+      case (Err(e), Ok(_))    => Err(List(e))
+      case (Err(e1), Err(e2)) => Err(List(e1, e2))
+
+  /** Generalized version of [[zip]] to work with arbitrary tuples.
+    * @see
+    *   [[zip]]
+    * @group combine
+    */
+  infix def cons[Ts <: Tuple, E1 >: E](
+      other: Result[Ts, List[E1]]
+  ): Result[T *: Ts, List[E1]] = (this, other) match
+    case (Ok(t), Ok(ts))       => Ok(t *: ts)
+    case (Err(e), Ok(_))       => Err(List(e))
+    case (Ok(_), err @ Err(_)) => err
+    case (Err(e), Err(es))     => Err(e :: es)
+
+  /** Returns this result if it is [[Ok]], otherwise evaluates and returns
+    * `other`.
+    * @group combine
+    */
+  def orElse[T1 >: T, E1](other: => Result[T1, E1]): Result[T1, E1] =
+    this match
+      case ok: Ok[T] => ok
+      case _         => other
+
+  // transformers
+
+  /** Maps the [[Ok]] value through `f`, otherwise keeping the [[Err]] error.
+    * @group transform
+    */
+  def map[U](f: T => U): Result[U, E] = this match
+    case Ok(value)   => Ok(f(value))
+    case err: Err[E] => err
+
+  /** Maps the [[Err]] error through `f`, otherwise keeping the [[Ok]] value.
+    * @group transform
+    */
+  def mapErr[E1](f: E => E1): Result[T, E1] = this match
+    case ok: Ok[T]  => ok
+    case Err(error) => Err(f(error))
+
+  /** Returns the output of `f` from applying it to the [[Ok]] value, otherwise
+    * keeping the [[Err]] case.
+    * @group transform
+    */
+  def flatMap[U, E1 >: E](f: T => Result[U, E1]): Result[U, E1] = this match
+    case Ok(value)   => f(value)
+    case err: Err[E] => err
+
+  /** Returns the output of `f` from applying it to the [[Err]] case error,
+    * otherwise keeping the [[Ok]] case. Similar to [[flatMap]], but on the
+    * [[Err]] case.
+    * @group transform
+    */
+  def handleErr[T1 >: T, E1](f: E => Result[T1, E1]): Result[T1, E1] =
+    this match
+      case ok: Ok[T]  => ok
+      case Err(error) => f(error)
+
+  /** Flattens a nested [[Result]], provided the [[Ok]] value is itself a
+    * [[Result]].
+    * @group transform
+    */
+  def flatten[U, E1 >: E](using ev: T <:< Result[U, E1]): Result[U, E1] =
+    this match
+      case Ok(value)   => ev(value)
+      case err: Err[E] => err
+
 end Result
 
 /** @groupname construct Constructing [[Result Results]] through other means
   * @groupprio construct 1
   * @groupname eval Constructing [[Result Results]] through evaluating
   * @groupprio eval 0
-  * @groupname convert Extensions: conversions into other types
-  * @groupprio convert 5
-  * @groupname transform Extensions: transformers to different types under the result
-  * @groupprio transform 3
-  * @groupname combine Extensions: combining multiple results into a new one
+  * @groupname combine Combining multiple results into a new one
   * @groupprio combine 4
-  * @groupname access Extensions: value accessors and disambiguators
-  * @groupprio access 2
   */
 object Result:
   /** Convert the error channel of a [[Result]]. Used for example with
@@ -156,283 +408,20 @@ object Result:
     => Conversion[Result[T, E], Result[T, E1]] =
     _.mapErr(_.convert)
 
-  /** An exception obtained by calling [[Result.get get]] on a [[Result.Err]].
-    * @param error
-    *   the error value that was enclosed in the variant.
-    */
-  case class ResultIsErrException(error: Any)
-      extends java.util.NoSuchElementException(
-        s"Attempting to call `.get` on a Result.Err value of: $error"
-      )
-
-  /** Method implementations on [[Result]]. */
   extension [T, E](r: Result[T, E])
-
-    // Basic case differentiation
-
-    /** Returns whether the result is [[Result.Ok Ok]].
-      * @group access
-      */
-    def isOk: Boolean = r.isInstanceOf[Ok[?]]
-
-    /** Returns whether the result is [[Result.Err Err]].
-      * @group access
-      */
-    def isErr: Boolean = r.isInstanceOf[Err[?]]
-
-    /** Returns `true` if result is an [[Err]], or if result contains an [[Ok]]
-      * value that satisfies `pred`.
-      * @group access
-      */
-    def forall(pred: T => Boolean): Boolean = r match
-      case Ok(value) => pred(value)
-      case _         => true // if no elem then true for all elem
-
-    /** Returns `true` if result is exactly an [[Ok]] containing a value that
-      * satisfies `pred`.
-      * @group access
-      */
-    def exists(pred: T => Boolean): Boolean = r match
-      case Ok(value) => pred(value)
-      case _         => false // does not exist if no elem
-
-    /** Alias of [[exists]].
-      * @group access
-      */
-    inline def isOkAnd(pred: T => Boolean): Boolean = exists(pred)
-
-    /** Alias of [[forall]].
-      * @group access
-      */
-    inline def isErrOr(pred: T => Boolean): Boolean = forall(pred)
-
-    // Conversion to Option and other Seqs
-
-    /** Converts the result into an [[Option]], with [[Some]] case if the value
-      * is [[Ok]].
-      * @group convert
-      */
-    def toOption: Option[T] = r match
-      case Ok(value) => Some(value)
-      case _         => None
-
-    /** Returns the [[Err]] error from the result.
-      * @group convert
-      */
-    def errOption: Option[E] = r match
-      case Ok(_)      => None
-      case Err(error) => Some(error)
-
-    /** Returns the [[Seq]] that is one element (the [[Ok]] value) or otherwise
-      * empty.
-      * @group convert
-      */
-    def toSeq: Seq[T] = r match
-      case Ok(value) =>
-        Seq(value) // backend currently optimises this to ::(value, Nil)
-      case _ => Seq() // backend currently optimises this to Nil
-
-    // Conversion to Either
-
-    /** Converts the result into an [[scala.Either Either]]. Where the [[Ok]]
-      * value is mapped to [[scala.Right]], and the [[Err]] error to
-      * [[scala.Left]].
-      * @group convert
-      */
-    def toEither: Either[E, T] = r match
-      case Ok(value)  => Right(value)
-      case Err(error) => Left(error)
-
-    // Extracting values forcefully
-
-    /** Returns the [[Ok]] value from the result, and throws an exception if it
-      * is an error.
-      * @throws ResultIsErrException
-      *   if the result is an [[Err]].
-      * @group access
-      */
-    def get: T = r match
-      case Ok(value)  => value
-      case Err(error) =>
-        throw ResultIsErrException(error)
-
-    /** Returns the error from the result, and throws an exception if it is an
-      * [[Ok]] value.
-      * @throws java.util.NoSuchElementException
-      *   if the result is an [[Ok]].
-      * @group access
-      */
-    def getErr: E = r match
-      case Err(error) => error
-      case Ok(value)  =>
-        throw ju.NoSuchElementException(
-          s"Expected Result.Err, got value: $value"
-        )
-
-    // Extracting with defaults
-
-    /** Returns the [[Ok]] value from the result, or `default` if the result is
-      * an [[Error]].
-      * @group access
-      */
-    def getOrElse(default: => T): T = r match
-      case Ok(value) => value
-      case _         => default
-
-    // Tapping
-
-    /** Runs `peek` with the wrapped [[Ok]] value, if it exists.
-      * @group access
-      */
-    def tap(peek: T => Unit): r.type =
-      // TODO: align with STDLIB we'd use [U] which avoids "discarded non-unit value" warning
-      r match
-        case Ok(value) => peek(value)
-        case _         => ()
-      r
-
-    /** Runs `peek` with the wrapped [[Err]] error, if it exists.
-      * @group access
-      */
-    def tapErr(peek: E => Unit): r.type =
-      // TODO: align with STDLIB we'd use [U] which avoids "discarded non-unit value" warning
-      r match
-        case Err(error) => peek(error)
-        case _          => ()
-      r
-
-    // Combinators
-
-    /** Returns a tuple of `r` and `other` if both are [[Ok]], or the first
-      * error otherwise. Short-circuits, so `other` is not evaluated if `r` is
-      * an [[Err]].
-      * @group combine
-      */
-    def and[U, E1](other: => Result[U, E1]): Result[(T, U), E | E1] = r match
-      case err: Err[E] => err
-      case Ok(t)       =>
-        other match
-          case Ok(u)        => Ok((t, u))
-          case err: Err[E1] => err
-
-    /** Returns a tuple of `r` and `other` if both are [[Ok]], or the first
-      * error otherwise. Short-circuits, so `other` is not evaluated if `r` is
-      * an [[Err]].
+    /** Generalized version of [[Result.zip zip]] to work with arbitrary tuples.
+      * Right-associative operator version of [[Result.cons cons]].
       *
-      * Unlike [[and]], returns the error disambiguated by [[Either]]: [[Left]]
-      * if `r` is an [[Err]], and [[Right]] if `r` is [[Ok]] but `other` is not.
-      * @group combine
-      */
-    def andTrace[U, E1](
-        other: => Result[U, E1]
-    ): Result[(T, U), Either[E, E1]] =
-      r match
-        case Err(error) => Err(Left(error))
-        case Ok(t)      =>
-          other match
-            case Ok(u)      => Ok((t, u))
-            case Err(error) => Err(Right(error))
-
-    /** Returns a tuple of `r` and `other` if both are [[Ok]], other return all
-      * errors as a [[List]]. Does '''not''' short-circuit.
-      * @group combine
-      */
-    def zip[U](other: Result[U, E]): Result[(T, U), List[E]] = (r, other) match
-      case (Ok(t), Ok(u))     => Ok((t, u))
-      case (Ok(_), Err(e))    => Err(List(e))
-      case (Err(e), Ok(_))    => Err(List(e))
-      case (Err(e1), Err(e2)) => Err(List(e1, e2))
-
-    /** Generalized version of [[zip]] to work with arbitrary tuples.
+      * This remains an extension method: defined as a class member, a
+      * right-associative operator would take its left operand as the argument
+      * and the right operand as the receiver, swapping the intended roles.
       * @see
-      *   [[zip]]
+      *   [[Result.zip zip]], [[Result.cons cons]]
       * @group combine
       */
-    infix def cons[Ts <: Tuple](
-        other: Result[Ts, List[E]]
-    ): Result[T *: Ts, List[E]] = (r, other) match
-      case (Ok(t), Ok(ts))       => Ok(t *: ts)
-      case (Err(e), Ok(_))       => Err(List(e))
-      case (Ok(_), err @ Err(_)) => err
-      case (Err(e), Err(es))     => Err(e :: es)
-
-    /** Generalized version of [[zip]] to work with arbitrary tuples. Operator
-      * version of [[cons]]
-      * @see
-      *   [[zip]], [[cons]]
-      * @group combine
-      */
-    infix inline def `*:`[Ts <: Tuple](
-        other: Result[Ts, List[E]]
-    ): Result[T *: Ts, List[E]] = r.cons(other)
-
-    /** Returns `r` if it is [[Ok]], otherwise evaluates and returns `other`.
-      * @group combine
-      */
-    def or[E1](other: => Result[T, E1]): Result[T, E1] = r match
-      case ok: Ok[T] => ok
-      case _         => other
-
-    // transformers
-
-    /** Maps the [[Ok]] value through `f`, otherwise keeping the [[Err]] error.
-      * @group transform
-      */
-    def map[U](f: T => U): Result[U, E] = r match
-      case Ok(value)   => Ok(f(value))
-      case err: Err[E] => err
-
-    /** Maps the [[Err]] error through `f`, otherwise keeping the [[Ok]] value.
-      * @group transform
-      */
-    def mapErr[E1](f: E => E1): Result[T, E1] = r match
-      case ok: Ok[T]  => ok
-      case Err(error) => Err(f(error))
-
-    /** Returns the output of `f` from applying it to the [[Ok]] value,
-      * otherwise keeping the [[Err]] case.
-      * @group transform
-      */
-    def flatMap[U](f: T => Result[U, E]): Result[U, E] = r match
-      case Ok(value)   => f(value)
-      case err: Err[E] => err
-
-    /** Returns the output of `f` from applying it to the [[Err]] case error,
-      * otherwise keeping the [[Ok]] case. Similar to [[flatMap]], but on the
-      * [[Err]] case.
-      * @group transform
-      */
-    def handleErr[E1](f: E => Result[T, E1]): Result[T, E1] = r match
-      case ok: Ok[T]  => ok
-      case Err(error) => f(error)
-
-  end extension
-
-  extension [T, E](r: Result[Result[T, E], E])
-    /** Flattens a nested [[Result]] with the same error type.
-      * @group transform
-      */
-    def flatten: Result[T, E] = r.match
-      case Ok(value)   => value
-      case err: Err[E] => err
-
-  extension [T <: AnyRef, E](r: Result[T, E])
-    /** Unwraps the inner value, returing `null` if there is an error.
-      * @group access
-      */
-    def getNullable: T | Null = r match
-      case Ok(value) => value
-      case _         => null
-
-  // Conversion to `Try`
-
-  extension [T](r: Result[T, Throwable])
-    /** Converts the result to [[scala.util.Try]].
-      * @group convert
-      */
-    def toTry: scala.util.Try[T] = r match
-      case Ok(value)  => scala.util.Success(value)
-      case Err(error) => scala.util.Failure(error)
+    infix inline def *:[Ts <: Tuple, E1 >: E](
+        other: Result[Ts, List[E1]]
+    ): Result[T *: Ts, List[E1]] = r.cons(other)
 
   /** Evaluates `body`, catching exceptions accepted by `catcher` as errors.
     * @see
@@ -445,7 +434,22 @@ object Result:
       body: => T
   ): Result[T, E] =
     try Ok(body)
-    catch case ex => Err(catcher.applyOrElse(ex, throw _))
+    catch
+      case ex =>
+        Err(catcher.applyOrElse(ex, throw _))
+
+  /** Evaluates `body`, catching exceptions that are
+    * [[scala.util.control.NonFatal NonFatal]] exceptions.
+    * @group construct
+    */
+  def catching[T](
+      body: => T
+  ): Result[T, Throwable] =
+    try Ok(body)
+    catch
+      ex =>
+        if NonFatal(ex) then Err(ex)
+        else throw ex
 
   /** Right unit for chains of [[cons]]. An [[Ok]] with an [[EmptyTuple]] value.
     * @group construct
@@ -464,8 +468,8 @@ object Result:
     */
   inline def cond[T, E](
       test: Boolean,
-      ifTrue: => T,
-      ifFalse: => E
+      inline ifTrue: T,
+      inline ifFalse: E
   ): Result[T, E] = if test then Ok(ifTrue) else Err(ifFalse)
 
   // Boundary and break
