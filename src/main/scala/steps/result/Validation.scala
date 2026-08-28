@@ -18,16 +18,23 @@ object Validation {
 
   type Checked[+T] = Label[Abort] ?=> T
 
-  inline def validate[T, E](inline op: Validation[E]^ => Checked[T]): Result[T, List[E]] =
-    val scope: Validation[E]^ = new Validation[E]
-    val userResult =
-      boundary[Validated[T]]:
-        Validated.success(op(scope))
-    caps.freeze(scope)
+  @publicInBinary
+  private[Validation] def unwrap[T, E](
+      consume scope: Validation[E]^,
+      userResult: Validated[T]
+  ): Result[T, List[E]] =
     val errors = scope.snapshot
     userResult match
       case ok: Result.Ok[?] if errors.isEmpty => ok
       case _ => Result.Err(errors)
+
+  inline def validate[T, E](inline op: Validation[E]^ => Checked[T]): Result[T, List[E]] =
+    // FIXME: It seems impossible to drop the inline requirement, or lift out the
+    // implementation here, without also requiring explicit type parameters at the call site.
+    val scope: Validation[E]^ = new Validation[E]
+    val userResult = boundary[Validated[T]]:
+      Validated.success(op(scope))
+    Validation.unwrap(scope, userResult)
 
 
   opaque type Validated[+A] = Result.Ok[A] | Abort
@@ -56,43 +63,27 @@ class Validation[E] extends caps.Mutable:
   private[Validation] update def appendAll(es: List[E]): Unit =
     errors ++= es
 
-  update inline def test(inline cond: Boolean, inline error: E): Unit =
+  update inline def test(cond: Boolean, inline error: E): Unit =
     if !cond then
       appendOne(error)
 
-  update inline def test[A](inline cond: Result[A, E]): Validated[A] =
-    cond match
-      case ok: Result.Ok[?] =>
-        Validated.fromOk(ok)
-      case Result.Err(e) =>
-        appendOne(e)
-        Validated.failure
-
-  update inline def testAll[A](inline cond: Result[A, List[E]]): Validated[A] =
-    cond match
-      case ok: Result.Ok[?] =>
-        Validated.fromOk(ok)
-      case Result.Err(es) =>
-        appendAll(es)
-        Validated.failure
-
-  update inline def require(inline cond: Boolean, inline error: E): Checked[Unit] =
+  update inline def require(cond: Boolean, inline error: E): Checked[Unit] =
     if !cond then
       appendOne(error)
       break(Validation.Abort)
 
-  update inline def require[A](inline cond: Result[A, E]): Checked[A] =
+  update def test[A](cond: Result[A, E]): Validated[A] =
     cond match
       case ok: Result.Ok[?] =>
-        ok.value
+        Validated.fromOk(ok)
       case Result.Err(e) =>
         appendOne(e)
-        break(Validation.Abort)
+        Validated.failure
 
-  update inline def requireAll[A](inline cond: Result[A, List[E]]): Checked[A] =
+  update def testAll[A](cond: Result[A, List[E]]): Validated[A] =
     cond match
       case ok: Result.Ok[?] =>
-        ok.value
+        Validated.fromOk(ok)
       case Result.Err(es) =>
         appendAll(es)
-        break(Validation.Abort)
+        Validated.failure

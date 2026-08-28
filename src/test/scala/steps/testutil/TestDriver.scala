@@ -11,7 +11,8 @@ object TestDriver extends dotty.tools.dotc.Driver {
   private val classpath: String =
     val entries = classLoaderUrls(getClass.getClassLoader)
       .map(url => java.nio.file.Paths.get(url.toURI).toString)
-    (sys.props("java.class.path") :: entries).mkString(java.io.File.pathSeparator)
+    val launchCp = sys.props("java.class.path").split(java.io.File.pathSeparator)
+    (entries ++ launchCp).mkString(java.io.File.pathSeparator)
 
   val args = Array("-classpath", classpath, "_.scala", "-Ystop-after:erasure")
 

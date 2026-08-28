@@ -6,13 +6,25 @@ import steps.result.Validation
 import ValidationTest.ParseErr
 import ValidationTest.abstracted
 
-val imports = """
+private val prelude = """
 package steps.testing
 import language.experimental.{separationChecking, captureChecking}
 import steps.result.Result
 import steps.result.Validation
+import caps.any
+import caps.fresh
 import ValidationTest.ParseErr
+import ValidationTest.Escaped
 import ValidationTest.abstracted
+
+"""
+
+def expr(expr: String) = s"""
+$prelude
+
+def Test = {
+  ${expr.linesWithSeparators.map(line => "  " + line).mkString}
+}
 """
 
 class ValidationTest extends munit.FunSuite {
@@ -101,7 +113,13 @@ class ValidationTest extends munit.FunSuite {
         })
         inner.ok
       },
-      expected = Result.Err(List(ParseErr("i1 must be positive"), ParseErr("s must be non-empty"), ParseErr("c must be positive")))
+      expected = Result.Err(
+        List(
+          ParseErr("i1 must be positive"),
+          ParseErr("s must be non-empty"),
+          ParseErr("c must be positive")
+        )
+      )
     )
     assertEquals(
       Validation.validate[Unit, ParseErr] { v =>
@@ -118,16 +136,92 @@ class ValidationTest extends munit.FunSuite {
   }
 
   test("separation failure") {
-    assertEquals(
-      compileFailed(s"""
-      $imports
-      def Test =
-        Validation.validate[Unit, ParseErr] { v =>
-          abstracted(-1, "", -48.5)(v, v) // error: v duplicated
-        }
-      """),
-      Nil // .exists(_.contains("Separation failure"))
+    // without separation checking then potentially if you assume two error scopes were separate
+    // but they were not then composing them could duplicate errors
+    assert(
+      compileFailed(expr(s"""
+      Validation.validate[Unit, ParseErr] { v =>
+        abstracted(-1, "", -48.5)(v, v) // error: v duplicated
+      }
+      """)).exists(_.contains("Separation failure"))
     )
+  }
+
+  test("escape") {
+    locally {
+      // mutable escape not allowed
+      assert(
+        compileFailed(expr(s"""
+        Validation.validate[() => Validation[ParseErr]^, ParseErr] { v =>
+          () => v
+        }
+        """)).exists(_.contains("Capability `any` outlives its scope"))
+      )
+    }
+    locally {
+      // unannotated escape not allowed
+      assert(
+        compileFailed(expr(s"""
+        Validation.validate[() => Validation[ParseErr], ParseErr] { v =>
+          () => v
+        }
+        """)).exists(_.contains("Capability `any` outlives its scope"))
+      )
+    }
+    locally {
+      // pure escape not allowed
+      assert(
+        compileFailed(expr(s"""
+        Validation.validate[() => Validation[ParseErr]^{}, ParseErr] { v =>
+          () => v
+        }
+        """)).exists(_.contains("Capability `any` outlives its scope"))
+      )
+    }
+    locally {
+      // inferred type escape not allowed
+      assert(
+        compileFailed(expr(s"""
+        Validation.validate { v =>
+          () => v
+        }
+        """)).exists(_.contains("Note that () ->{scope} steps.result.Validation[Any]^{scope} does not conform"))
+      )
+    }
+    locally {
+      // inferred type direct return not allowed
+      assert(
+        compileFailed(expr(s"""
+        Validation.validate { v =>
+          v
+        }
+        """)).exists(_.contains("Note that steps.result.Validation[Any]^{scope} does not conform"))
+      )
+    }
+    locally {
+      // explicit type direct return not allowed
+      assert(
+        compileFailed(expr(s"""
+        val result = Validation.validate[Validation[ParseErr], ParseErr] { v =>
+          v
+        }
+        """)).exists(_.contains("Note that capability `any.rd` cannot flow into capture set {}"))
+      )
+    }
+    locally {
+      // boxed inferred return not allowed
+      assert(
+        compileFailed(expr(s"""
+        val result = Validation.validate { v =>
+          Escaped(v)
+        }
+        result match {
+          case Escaped(v: Validation[Any]) => v.test(false, "leaked!")
+        }
+        """)).exists(_.contains("Cannot call update method appendOne of Validation_this\n" +
+          "since the capture set {} of value v of its prefix (v : steps.result.Validation[Any]^{}) is read-only."))
+      )
+    }
   }
 
   def compileFailed(src: String): Seq[String] =
@@ -136,6 +230,7 @@ class ValidationTest extends munit.FunSuite {
 
 object ValidationTest {
   case class ParseErr(msg: String)
+  case class Escaped(any: Any)
 
   def abstracted(a: Int, b: String, c: Double)(v1: Validation[ParseErr]^, v2: Validation[ParseErr]^): Unit =
     v1.test(a > 0, ParseErr("i1 must be positive"))
