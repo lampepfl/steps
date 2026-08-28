@@ -4,12 +4,12 @@ resolvers += ("Artifactory" at "https://repo.scala-lang.org/artifactory/maven-ni
 inThisBuild(
   List(
     organization := "ch.epfl.lamp",
-    homepage := Some(url("https://lampepfl.github.io/steps")),
+    homepage := Some(uri("https://lampepfl.github.io/steps")),
     versionScheme := Some("early-semver"),
     licenses := List(
       License(
         "Apache-2.0",
-        url(s"https://github.com/lampepfl/steps/blob/v${version.value}/LICENSE")
+        uri(s"https://github.com/lampepfl/steps/blob/v${version.value}/LICENSE")
       )
     ),
     developers := List(
@@ -17,25 +17,25 @@ inThisBuild(
         "natsukagami",
         "Natsu Kagami",
         "nki@fastmail.com",
-        url("https://github.com/natsukagami")
+        uri("https://github.com/natsukagami")
       ),
       Developer(
         "hamzaremmal",
         "Hamza Remmal",
         "hamza@remmal.net",
-        url("https://remmal.net")
+        uri("https://remmal.net")
       ),
       Developer(
         "bracevac",
         "Oliver Bračevac",
         "oliver@bracevac.org",
-        url("https://bracevac.org")
+        uri("https://bracevac.org")
       ),
       Developer(
         "bishabosha",
         "Jamie Thompson",
         "thompsonjamesrichard@gmail.com",
-        url("https://bishabosha.github.io")
+        uri("https://bishabosha.github.io")
       )
     )
   )
