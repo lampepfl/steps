@@ -13,20 +13,17 @@ import Validation.{Validated, Checked}
 import scala.annotation.publicInBinary
 
 object Validation {
-  object Abort
-  type Abort = Abort.type
+  private object AbortImpl
+  opaque type Abort = AbortImpl.type
 
-  type Checked[+T] = Label[Abort] ?=> T
+  type Checked[+T] = Label[Validated[Nothing]] ?=> T
 
   @publicInBinary
   private[Validation] def unwrap[T, E](
       consume scope: Validation[E]^,
       userResult: Validated[T]
   ): Result[T, List[E]] =
-    val errors = scope.snapshot
-    userResult match
-      case ok: Result.Ok[?] if errors.isEmpty => ok
-      case _ => Result.Err(errors)
+    userResult.okOrElse(scope.snapshot)
 
   inline def validate[T, E](inline op: Validation[E]^ => Checked[T]): Result[T, List[E]] =
     // FIXME: It seems impossible to drop the inline requirement, or lift out the
@@ -37,15 +34,18 @@ object Validation {
     Validation.unwrap(scope, userResult)
 
 
-  opaque type Validated[+A] = Result.Ok[A] | Abort
+  final class Validated[+A](c: Result.Ok[A] | Abort) extends AnyVal {
+    private[Validation] def okOrElse[E](errs: List[E]): Result[A, List[E]] = c match
+      case ok: Result.Ok[A] if errs.isEmpty => ok
+      case _ => Result.Err(errs)
+    inline def ok: Checked[A] = c match
+      case ok: Result.Ok[?] => ok.value
+      case _ => break(this.asInstanceOf[Validated[Nothing]])
+  }
   object Validated:
-    def failure: Validated[Nothing] = Abort
-    def success[A](value: A): Validated[A] = Result.Ok(value)
-    def fromOk[A](value: Result.Ok[A]): Validated[A] = value
-    extension [A](c: Validated[A])
-      inline def ok: Checked[A] = c match
-        case ok: Result.Ok[?] => ok.value
-        case _ => break(Abort)
+    val failure: Validated[Nothing] = Validated(AbortImpl)
+    def success[A](value: A): Validated[A] = Validated(Result.Ok(value))
+    def fromOk[A](value: Result.Ok[A]): Validated[A] = Validated(value)
 }
 
 class Validation[E] extends caps.Mutable:
@@ -70,7 +70,7 @@ class Validation[E] extends caps.Mutable:
   update inline def require(cond: Boolean, inline error: E): Checked[Unit] =
     if !cond then
       appendOne(error)
-      break(Validation.Abort)
+      break(Validated.failure)
 
   update def test[A](cond: Result[A, E]): Validated[A] =
     cond match
