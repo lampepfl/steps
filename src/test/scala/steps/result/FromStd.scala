@@ -1,3 +1,5 @@
+package steps.testing
+
 import scala.language.implicitConversions
 import scala.util.{Try, Success, Failure}
 

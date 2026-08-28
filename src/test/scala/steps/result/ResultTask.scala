@@ -1,4 +1,4 @@
-package steps.result
+package steps.testing
 
 import steps.result.Result.eval.{check, ok, raise}
 

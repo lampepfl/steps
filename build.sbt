@@ -55,7 +55,8 @@ lazy val steps = (projectMatrix in file("."))
     scalaVersion := scala3Version,
     libraryDependencies ++= Seq(
       // "org.scala-lang" %% "scala2-library-cc-tasty-experimental" % scala3Version,
-      "org.scalameta" %% "munit" % "1.3.0" % Test
+      "org.scalameta" %% "munit" % "1.3.0" % Test,
+      "org.scala-lang" %% "scala3-compiler" % scala3Version % Test
     ),
     scalacOptions ++= Seq(
       // "-Xprint:cc"
