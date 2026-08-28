@@ -10,6 +10,7 @@ import caps.any
 import caps.Control
 
 import Validation.{Validated, Checked}
+import scala.annotation.publicInBinary
 
 object Validation {
   object Abort
@@ -47,8 +48,13 @@ class Validation[E] extends caps.Mutable:
 
   def snapshot: List[E] = errors.toList
 
-  update def appendOne(e: E): Unit =
+  @publicInBinary
+  private[Validation] update def appendOne(e: E): Unit =
     errors += e
+
+  @publicInBinary
+  private[Validation] update def appendAll(es: List[E]): Unit =
+    errors ++= es
 
   update inline def test(inline cond: Boolean, inline error: E): Unit =
     if !cond then
@@ -62,6 +68,14 @@ class Validation[E] extends caps.Mutable:
         appendOne(e)
         Validated.failure
 
+  update inline def testAll[A](inline cond: Result[A, List[E]]): Validated[A] =
+    cond match
+      case ok: Result.Ok[?] =>
+        Validated.fromOk(ok)
+      case Result.Err(es) =>
+        appendAll(es)
+        Validated.failure
+
   update inline def require(inline cond: Boolean, inline error: E): Checked[Unit] =
     if !cond then
       appendOne(error)
@@ -73,4 +87,12 @@ class Validation[E] extends caps.Mutable:
         ok.value
       case Result.Err(e) =>
         appendOne(e)
+        break(Validation.Abort)
+
+  update inline def requireAll[A](inline cond: Result[A, List[E]]): Checked[A] =
+    cond match
+      case ok: Result.Ok[?] =>
+        ok.value
+      case Result.Err(es) =>
+        appendAll(es)
         break(Validation.Abort)

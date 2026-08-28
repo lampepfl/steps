@@ -1,5 +1,6 @@
 package steps.testing
 
+import steps.result.Result
 import steps.result.Result.eval.{check, ok, raise}
 
 // test demonstration that Result.task is a useful optimisation for side-effecting operations
