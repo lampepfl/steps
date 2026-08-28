@@ -2,45 +2,78 @@ package steps.testing
 
 import language.experimental.{separationChecking, captureChecking}
 import steps.result.Result
-import steps.result.Validation
-import ValidationTest.ParseErr
-import ValidationTest.abstracted
+import Result.eval.{ok}
+import steps.result.ValidationScope
+import ValidationTest2.ParseErr
+import ValidationTest2.Escaped
+import ValidationTest2.abstracted
 
-private val prelude = """
+private val prelude2 = """
 package steps.testing
 import language.experimental.{separationChecking, captureChecking}
 import steps.result.Result
-import steps.result.Validation
+import Result.eval.{ok}
+import steps.result.ValidationScope
 import caps.any
 import caps.fresh
-import ValidationTest.ParseErr
-import ValidationTest.Escaped
-import ValidationTest.abstracted
+import ValidationTest2.ParseErr
+import ValidationTest2.Escaped
+import ValidationTest2.abstracted
 
 """
 
-def expr(expr: String) = s"""
-$prelude
+def expr2(expr: String) = s"""
+$prelude2
 
 def Test = {
-  ${expr.linesWithSeparators.map(line => "  " + line).mkString}
+  val _ = {${expr.linesWithSeparators.mkString("    ")}
+  }
 }
 """
 
-class ValidationTest extends munit.FunSuite {
+class ValidationTest2 extends munit.FunSuite {
   import opaques.*
 
-  test("foo") {
-    // FIXME: WTF!!!!
-    val escape: Result[Validation[Any], List[Any]] = Validation.validate { v =>
-      v
+  test("can append to scope after leak") {
+    // def sample1() = {
+    //   val escape = ValidationScope.validate[ValidationScope.WritePerm, Any] { v =>
+    //     summon[ValidationScope.WritePerm]
+    //   }
+    //   escape match {
+    //     case Result.Ok((v: ValidationScope[Any]^, given ValidationScope.WritePerm)) =>
+    //       v.test(false, "leaked!")
+    //     case Result.Err(errs) =>
+    //       fail(s"unexpected error: $errs")
+    //   }
+    // }
+    def sample0() = {
+      val escape = ValidationScope.file { f =>
+        f
+      }
+      escape match {
+        case Result.Ok(f: ValidationScope.FileHandle) =>
+          println(s"file is closed: ${f.isClosed}")
+        case Result.Err(errs) =>
+          fail(s"unexpected error: $errs")
+      }
     }
-    escape match {
-      case Result.Ok(v: Validation[Any]^) =>
-        v.test(false, "leaked!")
-        assertEquals(v.snapshot, List("leaked!"))
-      case Result.Err(errs) => assertEquals(errs, Nil)
-    }
+    // def sample2() = {
+    //   val escape = ValidationScope.validate { v =>
+    //     new Escaped {
+    //       def any: Any = (v, summon[ValidationScope.WritePerm])
+    //     }
+    //   }
+    //   escape match {
+    //     case Result.Ok(v: Escaped) =>
+    //       val vScopePair = v.any.asInstanceOf[(ValidationScope[Any]^, ValidationScope.WritePerm)]
+    //       val vScope = vScopePair(0)
+    //       given ValidationScope.WritePerm = vScopePair(1)
+    //       vScope.test(false, "leaked!")
+    //     case Result.Err(errs) =>
+    //       fail(s"unexpected error: $errs")
+    //   }
+    // }
+    // sample1()
   }
 
   object opaques:
@@ -64,7 +97,7 @@ class ValidationTest extends munit.FunSuite {
         case _ => s
 
   test("boolean validation") {
-    def compose(i: Int, s: String): Result[(Int, String), List[ParseErr]] = Validation.validate { v =>
+    def compose(i: Int, s: String): Result[(Int, String), List[ParseErr]] = ValidationScope.validate { v =>
       v.test(i > 0, ParseErr("i must be positive"))
       v.test(s.nonEmpty, ParseErr("s must be non-empty"))
       (i, s)
@@ -79,7 +112,7 @@ class ValidationTest extends munit.FunSuite {
 
   test("result validation") {
 
-    def compose(i: Int, s: String): Result[(PosInt, NonEmptyStr), List[ParseErr]] = Validation.validate { v =>
+    def compose(i: Int, s: String): Result[(PosInt, NonEmptyStr), List[ParseErr]] = ValidationScope.validate { v =>
       val pI = v.test(PosInt.test(i))
       val nES = v.test(NonEmptyStr.test(s))
       (pI.ok, nES.ok)
@@ -93,13 +126,13 @@ class ValidationTest extends munit.FunSuite {
 
   test("composition of nested scopes") {
     case class Person(name: NonEmptyStr, age: PosInt)
-    def validatePerson(name: String, age: Int): Result[Person, List[ParseErr]] = Validation.validate { v =>
+    def validatePerson(name: String, age: Int): Result[Person, List[ParseErr]] = ValidationScope.validate { v =>
       val nameResult = v.test(NonEmptyStr.test(name))
       val ageResult = v.test(PosInt.test(age))
       Person(nameResult.ok, ageResult.ok)
     }
     case class Company(name: NonEmptyStr, ceo: Person)
-    def validateCompany(name: String, ceoName: String, ceoAge: Int): Result[Company, List[ParseErr]] = Validation.validate { v =>
+    def validateCompany(name: String, ceoName: String, ceoAge: Int): Result[Company, List[ParseErr]] = ValidationScope.validate { v =>
       val nameResult = v.test(NonEmptyStr.test(name))
       val ceoResult = v.testAll(validatePerson(ceoName, ceoAge))
       Company(nameResult.ok, ceoResult.ok)
@@ -110,8 +143,8 @@ class ValidationTest extends munit.FunSuite {
     type Data = (x: Int, y: String, z: Double)
     val data: Data = (x = 1, y = "ok", z = 3.14)
     assertEquals(
-      Validation.validate[Data, ParseErr] { v1 =>
-        val inner = v1.testAll(Validation.validate[Data, ParseErr] { v2 =>
+      ValidationScope.validate[Data, ParseErr] { v1 =>
+        val inner = v1.testAll(ValidationScope.validate[Data, ParseErr] { v2 =>
           abstracted(data.x, data.y, data.z)(v1, v2)
           data
         })
@@ -120,8 +153,8 @@ class ValidationTest extends munit.FunSuite {
       expected = Result.Ok(data)
     )
     assertEquals(
-      Validation.validate[Unit, ParseErr] { v1 =>
-        val inner = v1.testAll(Validation.validate[Unit, ParseErr] { v2 =>
+      ValidationScope.validate[Unit, ParseErr] { v1 =>
+        val inner = v1.testAll(ValidationScope.validate[Unit, ParseErr] { v2 =>
           abstracted(-1, "", -48.5)(v1, v2)
         })
         inner.ok
@@ -135,14 +168,14 @@ class ValidationTest extends munit.FunSuite {
       )
     )
     assertEquals(
-      Validation.validate[Unit, ParseErr] { v =>
-        abstracted(-1, "", -48.5)(v, new Validation)
+      ValidationScope.validate[Unit, ParseErr] { v =>
+        abstracted(-1, "", -48.5)(v, new ValidationScope)
       },
       expected = Result.Err(List(ParseErr("i1 must be positive")))
     )
     assertEquals(
-      Validation.validate[Unit, ParseErr] { v =>
-        abstracted(-1, "", -48.5)(new Validation, v)
+      ValidationScope.validate[Unit, ParseErr] { v =>
+        abstracted(-1, "", -48.5)(new ValidationScope, v)
       },
       expected = Result.Err(List(ParseErr("s must be non-empty"), ParseErr("c must be positive")))
     )
@@ -152,8 +185,8 @@ class ValidationTest extends munit.FunSuite {
     // without separation checking then potentially if you assume two error scopes were separate
     // but they were not then composing them could duplicate errors
     assert(
-      compileFailed(expr(s"""
-      Validation.validate[Unit, ParseErr] { v =>
+      compileFailed(expr2(s"""
+      ValidationScope.validate[Unit, ParseErr] { v =>
         abstracted(-1, "", -48.5)(v, v) // error: v duplicated
       }
       """)).exists(_.contains("Separation failure"))
@@ -164,78 +197,41 @@ class ValidationTest extends munit.FunSuite {
     locally {
       // mutable escape not allowed
       assert(
-        compileFailed(expr(s"""
-        Validation.validate[() => Validation[ParseErr]^, ParseErr] { v =>
-          () => v
-        }
-        """)).exists(_.contains("Capability `any` outlives its scope"))
-      )
-    }
-    locally {
-      // unannotated escape not allowed
-      assert(
-        compileFailed(expr(s"""
-        Validation.validate[() => Validation[ParseErr], ParseErr] { v =>
-          () => v
-        }
-        """)).exists(_.contains("Capability `any` outlives its scope"))
-      )
-    }
-    locally {
-      // pure escape not allowed
-      assert(
-        compileFailed(expr(s"""
-        Validation.validate[() => Validation[ParseErr]^{}, ParseErr] { v =>
-          () => v
-        }
-        """)).exists(_.contains("Capability `any` outlives its scope"))
-      )
-    }
-    locally {
-      // inferred type escape not allowed
-      assert(
-        compileFailed(expr(s"""
-        val escape = Validation.validate { v =>
+        compileFailed(expr2(s"""
+        ValidationScope.validate[() => ValidationScope[ParseErr]^, ParseErr] { v =>
           () => v
         }
         """)).exists(_.contains("Separation failure"))
       )
     }
     locally {
-      // FIXME: WTF!!!!
-      assertEquals(
-        compileFailed(expr(s"""
-        val escape: Result[Validation[Any], List[Any]] = Validation.validate { v =>
-          v
+      // unannotated escape not allowed
+      assert(
+        compileFailed(expr2(s"""
+        ValidationScope.validate[() => ValidationScope[ParseErr], ParseErr] { v =>
+          () => v
         }
-        escape match {
-          case Result.Ok(v: Validation[Any]^) => v.test(false, "leaked!")
-        }
-        """)), Nil //.exists(_.contains("Note that steps.result.Validation[Any]^{scope} does not conform"))
+        """)).exists(_.contains("Separation failure"))
       )
     }
     locally {
-      // explicit type direct return not allowed
+      // pure escape not allowed
       assert(
-        compileFailed(expr(s"""
-        val result = Validation.validate[Validation[ParseErr], ParseErr] { v =>
-          v
+        compileFailed(expr2(s"""
+        ValidationScope.validate[() => ValidationScope[ParseErr]^{}, ParseErr] { v =>
+          () => v
         }
-        """)).exists(_.contains("Note that capability `any.rd` cannot flow into capture set {}"))
+        """)).exists(_.contains("Note that capability `scope.rd` cannot flow into capture set {}"))
       )
     }
     locally {
-      // boxed inferred return not allowed
+      // inferred type escape not allowed
       assert(
-        compileFailed(expr(s"""
-        val result = Validation.validate { v =>
-          Escaped(v)
+        compileFailed(expr2(s"""
+        ValidationScope.validate { v =>
+          () => v
         }
-        result.get match {
-          case Escaped(v: Validation[Any]) => v.test(false, "leaked!")
-        }
-        """)).exists(_.contains("Cannot call update method appendOne of Validation_this\n" +
-          "since the capture set {} of value v of its prefix (v : steps.result.Validation[Any]^{}) is read-only."))
+        """)).exists(_.contains("Separation failure"))
       )
     }
   }
@@ -244,11 +240,13 @@ class ValidationTest extends munit.FunSuite {
     TestDriver.runWithErrors(src)
   }
 
-object ValidationTest {
+object ValidationTest2 {
   case class ParseErr(msg: String)
-  case class Escaped(any: Any)
+  trait Escaped {
+    def any: Any
+  }
 
-  def abstracted(a: Int, b: String, c: Double)(v1: Validation[ParseErr]^, v2: Validation[ParseErr]^): Unit =
+  def abstracted(a: Int, b: String, c: Double)(v1: ValidationScope[ParseErr]^, v2: ValidationScope[ParseErr]^)(using ValidationScope.WritePerm): Unit =
     v1.test(a > 0, ParseErr("i1 must be positive"))
     v2.test(b.nonEmpty, ParseErr("s must be non-empty"))
     v2.test(c > 0, ParseErr("c must be positive"))

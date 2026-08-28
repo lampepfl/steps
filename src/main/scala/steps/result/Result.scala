@@ -461,6 +461,8 @@ object Result:
     */
   val done: Result[Unit, Nothing] = Ok(())
 
+  val invalid: Result[Nothing, Unit] = Err(())
+
   /** Construct a `Result[T, E]` based on the condition given in `test`. If the
     * `test` succeeds (i.e. `test` is `true`), [[Ok]] with `ifTrue` is returned;
     * otherwise, return [[Err]] with `ifFalse`.
@@ -716,6 +718,33 @@ object Result:
       inline def check: Unit = r match
         case err: Err[E] => breakErr(err)
         case _           => ()
+
+    extension [T](using
+        @implicitNotFound(
+          "`.valid` cannot be used outside of the `Result.task` scope."
+        )
+        label: boundary.Label[Err[Unit]]
+    )(inline r: into[Result[T, Unit]])
+
+      /** Checks that the result is not [[Err]], if so return normally, else
+        * short-circuit the current `body` under [[Result$.task Result.task]]
+        * with the given error if the result is an [[Err]].
+        * ```
+        * val ok: Result[Unit, Nothing] = Result.done
+        * val err: Result[Unit, String] = Err("fail!")
+        *
+        * val compute = Result.task:
+        *   ok.valid    // ok, continues
+        *   err.valid   // error, immediately sets compute to Err("fail")
+        *   println(23) // not evaluated
+        * ```
+        * @group eval
+        * @see
+        *   [[task]] and [[raise]].
+        */
+      inline def valid2: T = r match
+        case ok: Ok[T] => ok.value
+        case err: Err[Unit] => breakErr(err)
 
     // Separate design of ok that does this conversion hackery just to let you pass label explicitly,
     // it seems better to work with `jumpTo` instead that can co-erce the type inference without this extra conversion type.
