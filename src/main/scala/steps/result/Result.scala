@@ -459,9 +459,9 @@ object Result:
   /** Constant unit value for use with [[Result.task]]
     * @group construct
     */
-  val done: Result[Unit, Nothing] = Ok(())
+  val done: Result.Ok[Unit] = Ok(())
 
-  val invalid: Result[Nothing, Unit] = Err(())
+  val invalid: Result.Err[Unit] = Err(())
 
   /** Construct a `Result[T, E]` based on the condition given in `test`. If the
     * `test` succeeds (i.e. `test` is `true`), [[Ok]] with `ifTrue` is returned;
