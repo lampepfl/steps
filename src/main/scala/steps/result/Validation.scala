@@ -2,7 +2,7 @@ package steps.result
 
 import language.experimental.{captureChecking, separationChecking}
 
-import scala.util.boundary, boundary.{break, Label}
+import scala.util.boundary, boundary.{break, Label, Break}
 
 import collection.mutable
 import caps.Control
@@ -10,9 +10,8 @@ import caps.fresh
 import caps.any
 import caps.Control
 
-import Validation.{Checked, Validated, Tested}
+import Validation.{Checked, Validated, Tested, CanCheck, boundary2}
 import scala.annotation.publicInBinary
-import scala.annotation.experimental
 import steps.result.Validation.Step
 
 object Validation {
@@ -24,10 +23,16 @@ object Validation {
   type Step[+T, E] = (CanCheck, Validation[E]^) ?=> T
   def scope[E](using scope: Validation[E]^): scope.type = scope
 
-  @experimental("We would like to make this inline, but that breaks capture checking, see https://github.com/scala/scala3/issues/26982")
-  def validated[T, E](step: Step[T, E]): Validated[T, E] =
-    given (Validation[E]^)()
-    scope.result(step)
+  inline def validated[T, E](inline step: Step[T, E]): Validated[T, E] =
+    Validation[E].result(step)
+
+  /** Version of boundary that allows for an exclusive label from the body - still gets optimised */
+  inline def boundary2[A, E](inline body: Label[E] ?=> A): A | E =
+    val local = Label[E]()
+    try body(using local)
+    catch case ex: Break[E] @unchecked =>
+      if ex.isSameLabelAs(local) then ex.value
+      else throw ex
 
 }
 
@@ -36,7 +41,8 @@ class Validation[E] extends caps.Stateful, caps.ExclusiveCapability:
 
   private val errors = mutable.ListBuffer[E]()
 
-  consume def close(): List[E] = {
+  @publicInBinary
+  private[Validation] consume def close(): List[E] = {
     val es = errors.toList
     errors.clear()
     es
@@ -54,7 +60,7 @@ class Validation[E] extends caps.Stateful, caps.ExclusiveCapability:
     if !cond then
       appendOne(error)
 
-  update inline def require(cond: Boolean, inline error: E): Checked[Unit] =
+  update inline def require(cond: Boolean, inline error: E): Checked[Unit] = (lbl: CanCheck) ?=>
     if !cond then
       appendOne(error)
       break(Result.invalid)
@@ -67,10 +73,11 @@ class Validation[E] extends caps.Stateful, caps.ExclusiveCapability:
         appendOne(e)
         Result.invalid
 
-  @experimental("We would like to make this inline, but that breaks capture checking, see https://github.com/scala/scala3/issues/26982")
-  update def testStep[A](cond: Step[A, E]): Tested[A] =
-    boundary: lbl ?=>
-      Result.Ok(cond(using lbl, this))
+  inline update def testStep[A](inline cond: Step[A, E]): Tested[A] =
+    given scope: (Validation[E]^{this}) = this
+    boundary2 {
+      Result.Ok(cond)
+    }
 
   update def testAll[A](validated: Validated[A, E]): Tested[A] =
     validated match
@@ -80,9 +87,12 @@ class Validation[E] extends caps.Stateful, caps.ExclusiveCapability:
         appendAll(es)
         Result.invalid
 
-  @experimental("We would like to make this inline, but that breaks capture checking, see https://github.com/scala/scala3/issues/26982")
-  consume def result[A](cond: Step[A, E]): Validated[A, E] =
+  inline consume def result[A](consume inline cond: Step[A, E]): Validated[A, E] =
     val validated = testStep(cond)
+    finish(validated)
+
+  @publicInBinary
+  private[Validation] consume def finish[A](consume validated: Tested[A]): Validated[A, E] =
     val errs = close()
     validated match
       case ok @ Result.Ok(_) if errs.isEmpty => ok

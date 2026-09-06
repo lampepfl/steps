@@ -188,7 +188,7 @@ class ValidationTest extends munit.FunSuite {
           val v = scope
           () => v
         }
-        """).exists(_.contains("Note that capability `v` cannot flow into capture set {any}"))
+        """).exists(_.contains("Separation failure"))
       )
     }
     locally {
@@ -199,7 +199,7 @@ class ValidationTest extends munit.FunSuite {
           val v = scope
           () => v
         }
-        """).exists(_.contains("Note that capability `v.rd` cannot flow into capture set {any.rd}"))
+        """).exists(_.contains("Separation failure"))
       )
     }
     locally {
@@ -210,7 +210,7 @@ class ValidationTest extends munit.FunSuite {
           val v = scope
           () => v
         }
-        """).exists(_.contains("Note that capability `v.rd` cannot flow into capture set {}."))
+        """).exists(_.contains("Note that capability `Validation_this.rd` cannot flow into capture set {}"))
       )
     }
     locally {
@@ -221,7 +221,7 @@ class ValidationTest extends munit.FunSuite {
           val v = scope
           () => v
         }
-        """).exists(_.contains("Capability `contextual$2` outlives its scope"))
+        """).exists(_.contains("Separation failure"))
       )
     }
   }
